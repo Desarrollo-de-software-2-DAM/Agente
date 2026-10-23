@@ -18,11 +18,10 @@ Aceptamos tarjetas de crédito y débito (Visa, MasterCard, American Express), P
 Absolutamente. Utilizamos encriptación SSL de 256 bits y nuestros procesos de pago cumplen con los estándares PCI-DSS. No almacenamos los datos completos de tu tarjeta.
 
 **6. ¿Puedo pagar a meses sin intereses (MSI)?**
-Sí, ofrecemos hasta 12 MSI en compras superiores a $150 USD con tarjetas de crédito participantes.
-
+Sí, ofrecemos hasta 12 MSI en compras superiores a $600.000 COP con tarjetas de crédito participantes.
 ## Tiempos de Envío
 **7. ¿Cuánto tiempo tarda en llegar mi pedido?**
-El envío estándar toma de 3 a 5 días hábiles. El envío express toma de 1 a 2 días hábiles dependiendo de tu código postal.
+El envío estándar toma de 2 a 8 días hábiles y el express de 1 a 5 días hábiles, según la zona de entrega y el peso del paquete.
 
 **8. ¿Desde dónde se envían los productos?**
 Contamos con múltiples centros de distribución a nivel nacional. Tu pedido se enviará desde el almacén más cercano con disponibilidad de stock.
@@ -45,7 +44,7 @@ La garantía no cubre daños por mal uso, golpes, derrames de líquidos, modific
 Sí, tienes 30 días naturales a partir de la recepción del pedido para solicitar una devolución.
 
 **14. ¿Las devoluciones tienen algún costo?**
-Si el producto es defectuoso, la devolución es gratuita. Si es por cambio de opinión, se deducirá una tarifa de envío de $15 USD.
+Si el producto es defectuoso, la devolución es gratuita. Si es por cambio de opinión, se deducirá una tarifa de envío de $60.000 COP.
 
 **15. ¿Cuánto tarda el reembolso?**
 Una vez aprobado, el reembolso tarda entre 5 y 10 días hábiles en reflejarse en tu estado de cuenta, dependiendo de tu banco.
@@ -65,4 +64,4 @@ Sí, tienes 72 horas para solicitar la corrección de una factura contactando a 
 Brindamos soporte técnico remoto básico. Para instalación física de equipos complejos, te recomendamos consultar con técnicos locales certificados.
 
 **20. ¿Cómo contacto al equipo de soporte?**
-Puedes contactarnos vía chat en vivo de lunes a viernes (9am-6pm), por correo electrónico a soporte@amershop.com, o llamando al 800-AMERSHOP.
+Puedes contactarnos vía chat en vivo de lunes a viernes (9am-6pm) y sábados (10am-2pm), por correo electrónico a soporte@amershop.com, o llamando al +52-800-AMERSHOP.

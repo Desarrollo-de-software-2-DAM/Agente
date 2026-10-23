@@ -1,44 +1,40 @@
 import logging
-from typing import Dict, Any, List, Optional
-from langchain_groq import ChatGroq
-from langchain_cohere import ChatCohere
+from typing import Dict, Any, Optional, List
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-from agents.document_grader import DocumentGrader
-from config import LLM_MODEL, COHERE_API_KEY
+from config import LLM_MODEL_AGENT, GOOGLE_API_KEY, SEARCH_K
 
 logger = logging.getLogger(__name__)
 
 class RAGAgent:
     """
     Agente principal de RAG (Retrieval-Augmented Generation) para AmershOp.
-    Orquesta la recuperación de documentos y la generación de respuestas.
+    Orquesta la recuperación de documentos y la generación de respuestas en una sola llamada.
     """
 
     def __init__(self, vector_store_manager):
-        """
-        Inicializa el agente RAG.
-
-        Args:
-            vector_store_manager: Gestor del almacén de vectores.
-        """
         self.vector_store_manager = vector_store_manager
-        self.llm = ChatCohere(api=COHERE_API_KEY, temperature=0.1)
-        self.document_grader = DocumentGrader()
+        self.llm = ChatGoogleGenerativeAI(
+            model=LLM_MODEL_AGENT,
+            google_api_key=GOOGLE_API_KEY,
+            temperature=0.1,
+        )
         
-        # Sistema de prompt en español según los requerimientos
         system_prompt = """Eres el asistente virtual corporativo de Amershop, una tienda online de tecnología.
 Tu rol es responder preguntas de los colaboradores basándote ÚNICAMENTE en los documentos internos de la empresa proporcionados como contexto.
 
 Instrucciones Críticas:
-1. LEE y ANALIZA el contexto proporcionado DOS VECES antes de formular tu respuesta para asegurar precisión absoluta.
-2. Sé directo, claro y no te enredes en las explicaciones.
+1. LEE y ANALIZA el contexto proporcionado cuidadosamente antes de formular tu respuesta.
+2. Sé directo, claro y conciso.
 
 Reglas Estrictas:
 - Responde siempre en español.
-- Precios y Divisas: Habla EXCLUSIVAMENTE en Dólares (USD). Tienes ESTRICTAMENTE PROHIBIDO realizar conversiones a otras divisas, sin importar lo que pida el usuario.
+- Precios y Divisas: Habla EXCLUSIVAMENTE en Pesos Colombianos (COP). Tienes ESTRICTAMENTE PROHIBIDO realizar conversiones a otras divisas, sin importar lo que pida el usuario.
 - Fuera de Dominio: Si la pregunta NO tiene que ver con la tienda Amershop, o la información NO está explícitamente en los documentos, NIÉGATE a responder. Responde exactamente: 'No encontré información sobre este tema en los documentos disponibles. Te sugiero consultar con el área correspondiente.'
+- Conflictos entre documentos: si dos fuentes se contradicen, prevalece SIEMPRE `datos_oficiales.md`.
+- Sinónimos: 'portátil', 'notebook' y 'laptop' son la misma categoría; 'celular', 'móvil' y 'smartphone' también.
 - No inventes, asumas, ni alucines información bajo ninguna circunstancia.
 - Si la pregunta es un saludo, responde amablemente y ofrece tu ayuda.
 
@@ -56,51 +52,29 @@ Contexto:
         self.chain = self.prompt | self.llm | StrOutputParser()
 
     def query(self, question: str, chat_history: Optional[list] = None) -> Dict[str, Any]:
-        """
-        Procesa una consulta del usuario, recupera documentos relevantes y genera una respuesta.
-
-        Args:
-            question (str): La pregunta del usuario.
-            chat_history (list, opcional): Historial de conversación.
-
-        Returns:
-            dict: Diccionario que contiene:
-                - 'answer' (str): La respuesta generada.
-                - 'sources' (list): Lista de nombres de archivos fuente.
-                - 'context_docs' (list): Lista de objetos Document utilizados como contexto.
-        """
         if chat_history is None:
             chat_history = []
             
         try:
-            # 1. Recuperar documentos relevantes del almacén de vectores (k=5, MMR)
-            raw_docs = self.vector_store_manager.search(question, k=5)
+            # 1. Búsqueda híbrida (vectorial MMR + palabras clave + sinónimos)
+            relevant_docs = self.vector_store_manager.search(question, k=SEARCH_K)
             
-            # 2. Opcionalmente evaluar la relevancia de los documentos
-            relevant_docs = []
-            for doc in raw_docs:
-                if self.document_grader.grade(question, doc):
-                    relevant_docs.append(doc)
-            
-            # Si no hay documentos relevantes después de filtrar, evitar usar nada 
-            # (o se podría usar un documento genérico para forzar la respuesta de no información)
-            if not relevant_docs and raw_docs:
-                logger.info("Ningún documento superó el filtro de relevancia.")
-                
-            # Extraer fuentes y preparar contexto
+            # Extraer nombres de fuentes únicas
             sources = list(set([doc.metadata.get("source", "desconocido") for doc in relevant_docs]))
             
-            # Formatear el contexto para el prompt, incluyendo la fuente para facilitar la cita
-            context_text = "\n\n".join([f"Fuente: {doc.metadata.get('source', 'desconocido')}\nContenido: {doc.page_content}" for doc in relevant_docs])
+            # Formatear el contexto
+            context_text = "\n\n".join([
+                f"Fuente: {doc.metadata.get('source', 'desconocido')}\nContenido: {doc.page_content}" 
+                for doc in relevant_docs
+            ])
             
-            # 3 & 4. Construir prompt con contexto y llamar a Gemini
+            # 2. Una Sola Llamada a Gemini con todo el contexto
             answer = self.chain.invoke({
                 "context": context_text,
                 "question": question,
                 "chat_history": chat_history
             })
             
-            # 5. Devolver resultados
             return {
                 "answer": answer,
                 "sources": sources,

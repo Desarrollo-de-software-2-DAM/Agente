@@ -22,19 +22,20 @@ APP_DESCRIPTION = (
 )
 
 # --- Configuración del LLM y OAuth ---
-COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+LLM_MODEL_AGENT = os.getenv("LLM_MODEL_AGENT", "gemini-3.5-flash")
+LLM_MODEL_GRADER = os.getenv("LLM_MODEL_GRADER", "gemini-3.5-flash")
+
 
 # --- Configuración del Vector Store ---
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/embedding-001")  
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "amershop_docs")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
-SEARCH_K = int(os.getenv("SEARCH_K", "5"))
+SEARCH_K = int(os.getenv("SEARCH_K", "8"))
 
 # --- Configuración de Documentos ---
 DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", "./documents")
