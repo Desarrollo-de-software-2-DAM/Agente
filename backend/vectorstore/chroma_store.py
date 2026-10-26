@@ -13,6 +13,7 @@ from langchain_core.documents import Document
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from config import EMBEDDING_MODEL
+from utils.text_normalize import expand_query, keyword_search
 
 # Configuración del registro de eventos (logging)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -142,23 +143,31 @@ class VectorStoreManager:
 
     def search(self, query: str, k: int = 5) -> List[Document]:
         """
-        Realiza una búsqueda utilizando Relevancia Marginal Máxima (MMR).
-
-        Args:
-            query (str): La consulta de búsqueda.
-            k (int): Número de documentos a devolver.
-
-        Returns:
-            List[Document]: Lista de documentos más relevantes.
+        Búsqueda híbrida: vectorial (MMR) + léxica (palabras clave normalizadas),
+        con la consulta expandida con sinónimos ('portátiles' → laptop, notebook...).
+        Los resultados se fusionan con Reciprocal Rank Fusion.
         """
         try:
             if self.vector_store is None:
                 logger.warning("No hay documentos indexados para buscar.")
                 return []
 
-            logger.info(f"Realizando búsqueda MMR para: '{query}'")
-            results = self.vector_store.max_marginal_relevance_search(query, k=k)
-            return results
+            expanded = expand_query(query)
+            logger.info(f"Búsqueda híbrida: '{query}' -> '{expanded}'")
+
+            vector_hits = self.vector_store.max_marginal_relevance_search(
+                expanded, k=k, fetch_k=max(20, k * 4)
+            )
+            keyword_hits = keyword_search(query, self._all_documents, k=k)
+
+            fused: dict = {}
+            for hits in (vector_hits, keyword_hits):
+                for rank, doc in enumerate(hits):
+                    key = (doc.metadata.get("source"), doc.metadata.get("page"), doc.page_content)
+                    entry = fused.setdefault(key, [0.0, doc])
+                    entry[0] += 1.0 / (60 + rank)
+            ranked = sorted(fused.values(), key=lambda e: e[0], reverse=True)
+            return [doc for _, doc in ranked[:k]]
         except Exception as e:
             logger.error(f"Error al realizar la búsqueda: {e}")
             return []

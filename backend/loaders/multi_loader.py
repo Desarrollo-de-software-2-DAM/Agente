@@ -3,6 +3,7 @@ Módulo para cargar múltiples formatos de documentos en la plataforma AmershOp.
 """
 
 import os
+import re
 import json
 import logging
 from datetime import datetime
@@ -15,6 +16,7 @@ import pandas as pd
 from pptx import Presentation
 from bs4 import BeautifulSoup
 from langchain_core.documents import Document
+from utils.text_normalize import CATEGORY_ALIASES
 
 # Configuración de registro (logging)
 logger = logging.getLogger(__name__)
@@ -33,13 +35,23 @@ def _get_base_metadata(file_path: str) -> dict:
         "loaded_at": datetime.now().isoformat()
     }
 
+_REDUNDANT_BLOCK = re.compile(
+    r"Adicionalmente,.*?(?=\n\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]|\Z)", re.S | re.I
+)
+
+
+def _strip_redundant_paragraphs(text: str) -> str:
+    """Elimina los bloques 'Adicionalmente, ...' que repiten el párrafo anterior."""
+    return re.sub(r"\n{3,}", "\n\n", _REDUNDANT_BLOCK.sub("", text)).strip()
+
+
 def _load_pdf(file_path: str) -> List[Document]:
     """Carga el texto de un archivo PDF usando pypdf."""
     docs = []
     try:
         reader = PdfReader(file_path)
         for i, page in enumerate(reader.pages):
-            text = page.extract_text()
+            text = _strip_redundant_paragraphs(page.extract_text() or "")
             if text and text.strip():
                 metadata = _get_base_metadata(file_path)
                 metadata["page"] = i + 1
@@ -63,18 +75,52 @@ def _load_docx(file_path: str) -> List[Document]:
         logger.error(f"Error al cargar DOCX {file_path}: {e}")
     return docs
 
+def _fmt_precio(valor) -> str:
+    try:
+        return f"${float(valor):,.0f}"
+    except (TypeError, ValueError):
+        return str(valor)
+
+
 def _load_xlsx(file_path: str) -> List[Document]:
-    """Carga datos de un archivo XLSX convirtiendo cada hoja en una tabla Markdown."""
+    """
+    Carga un XLSX. Si parece un catálogo (columnas Nombre/Categoría/Precio) genera
+    una ficha por producto y un resumen por categoría con sus alias
+    (p. ej. Laptops = portátiles), para que la búsqueda los encuentre.
+    Si no, convierte cada hoja a tabla Markdown.
+    """
     docs = []
     try:
         xls = pd.ExcelFile(file_path)
         for sheet_name in xls.sheet_names:
             df = pd.read_excel(xls, sheet_name=sheet_name)
-            if not df.empty:
-                text = df.to_markdown(index=False)
-                metadata = _get_base_metadata(file_path)
-                metadata["sheet"] = sheet_name
-                docs.append(Document(page_content=text, metadata=metadata))
+            if df.empty:
+                continue
+            metadata = _get_base_metadata(file_path)
+            metadata["sheet"] = sheet_name
+
+            es_catalogo = {"Nombre", "Categoría", "Precio"}.issubset(df.columns)
+            if not es_catalogo:
+                docs.append(Document(page_content=df.to_markdown(index=False), metadata=metadata))
+                continue
+
+            for categoria, grupo in df.groupby("Categoría", sort=False):
+                alias = ", ".join(CATEGORY_ALIASES.get(categoria, []))
+                etiqueta = f"{categoria} (también: {alias})" if alias else str(categoria)
+                lineas = []
+                for _, r in grupo.iterrows():
+                    ficha = (
+                        f"Producto: {r['Nombre']} | ID: {r['ID']} | Categoría: {etiqueta} | "
+                        f"Marca: {r['Marca']} | Precio: {_fmt_precio(r['Precio'])} | "
+                        f"Stock: {r['Stock']} unidades | Descripción: {r['Descripción']}"
+                    )
+                    docs.append(Document(page_content=ficha, metadata={**metadata, "categoria": categoria}))
+                    lineas.append(f"- {r['Nombre']} ({r['ID']}): {_fmt_precio(r['Precio'])}, stock {r['Stock']}")
+                resumen = (
+                    f"Catálogo de la categoría {etiqueta}. "
+                    f"Productos disponibles ({len(grupo)}):\n" + "\n".join(lineas)
+                )
+                docs.append(Document(page_content=resumen, metadata={**metadata, "categoria": categoria}))
     except Exception as e:
         logger.error(f"Error al cargar XLSX {file_path}: {e}")
     return docs

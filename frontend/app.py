@@ -29,7 +29,11 @@ def query_backend_api(prompt: str, messages_history: list) -> str:
     try:
         response = requests.post(
             f"{BACKEND_URL}/chat",
-            json={"prompt": prompt, "chat_history": messages_history},
+            json={
+                "prompt": prompt,
+                "chat_history": messages_history,
+                "username": st.session_state.get("username"),
+            },
             timeout=60,
         )
         if response.status_code == 200:
@@ -40,6 +44,51 @@ def query_backend_api(prompt: str, messages_history: list) -> str:
         return "⚠️ No se pudo conectar con el servicio Backend. Verifica que el contenedor esté corriendo."
     except Exception as e:
         return f"Error de conexión: {e}"
+
+
+def login_backend_api(username: str, password: str):
+    """Valida usuario y contraseña contra el backend. Devuelve (ok, datos_o_mensaje_error)."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/login",
+            json={"username": username, "password": password},
+            timeout=15,
+        )
+        if response.status_code == 200:
+            return True, response.json()
+        return False, response.json().get("detail", "Usuario o contraseña incorrectos.")
+    except requests.exceptions.ConnectionError:
+        return False, "No se pudo conectar con el Backend. Verifica que el contenedor esté corriendo."
+    except Exception as e:
+        return False, f"Error de conexión: {e}"
+
+
+def register_backend_api(username: str, email: str, password: str):
+    """Crea un nuevo usuario en el backend. Devuelve (ok, datos_o_mensaje_error)."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/register",
+            json={"username": username, "email": email, "password": password},
+            timeout=15,
+        )
+        if response.status_code == 200:
+            return True, response.json()
+        return False, response.json().get("detail", "No se pudo completar el registro.")
+    except requests.exceptions.ConnectionError:
+        return False, "No se pudo conectar con el Backend. Verifica que el contenedor esté corriendo."
+    except Exception as e:
+        return False, f"Error de conexión: {e}"
+
+
+def load_history_api(username: str) -> list:
+    """Carga el historial de mensajes ya guardado de un usuario."""
+    try:
+        response = requests.get(f"{BACKEND_URL}/history/{username}", timeout=15)
+        if response.status_code == 200:
+            return response.json().get("messages", [])
+    except Exception:
+        pass
+    return []
 
 
 def inject_custom_css():
@@ -160,6 +209,7 @@ def render_sidebar():
             st.markdown("---")
             if st.button("🚪 Cerrar Sesión", use_container_width=True):
                 st.session_state["authenticated"] = False
+                st.session_state["username"] = None
                 st.session_state["messages"] = []
                 st.rerun()
 
@@ -180,26 +230,54 @@ def render_login():
             </div>
         """, unsafe_allow_html=True)
 
-        with st.form("login_form"):
-            email = st.text_input("Correo Electrónico", placeholder="usuario@amershop.com")
-            password = st.text_input("Contraseña", type="password", placeholder="••••••••")
-            submitted = st.form_submit_button("Iniciar Sesión con Correo", use_container_width=True)
+        tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Registrarse"])
 
-            if submitted:
-                if email and password:
-                    st.session_state["authenticated"] = True
-                    st.session_state["user_name"] = email.split("@")[0].capitalize()
-                    st.session_state["user_email"] = email
-                    st.session_state["auth_type"] = "Cuenta Corporativa"
-                    st.rerun()
-                else:
-                    st.error("Por favor ingresa tu correo y contraseña.")
+        with tab_login:
+            with st.form("login_form"):
+                username = st.text_input("Usuario", placeholder="admin, ventas, o el que registraste")
+                password = st.text_input("Contraseña", type="password", placeholder="••••••••", key="login_password")
+                submitted = st.form_submit_button("Iniciar Sesión", use_container_width=True)
+
+                if submitted:
+                    if username and password:
+                        ok, data = login_backend_api(username.strip().lower(), password)
+                        if ok:
+                            st.session_state["authenticated"] = True
+                            st.session_state["username"] = data["username"]
+                            st.session_state["user_name"] = data["username"].capitalize()
+                            st.session_state["user_email"] = data.get("email", "")
+                            st.session_state["auth_type"] = "Cuenta Registrada"
+                            st.session_state["messages"] = load_history_api(data["username"])
+                            st.rerun()
+                        else:
+                            st.error(data)
+                    else:
+                        st.error("Por favor ingresa tu usuario y contraseña.")
+
+        with tab_registro:
+            with st.form("register_form"):
+                new_username = st.text_input("Elige un usuario", placeholder="sin espacios, ej: jperez")
+                new_email = st.text_input("Correo Electrónico", placeholder="tu@correo.com")
+                new_password = st.text_input("Elige una contraseña", type="password", key="register_password")
+                submitted_reg = st.form_submit_button("Crear Cuenta", use_container_width=True)
+
+                if submitted_reg:
+                    if new_username and new_email and new_password:
+                        ok, data = register_backend_api(new_username.strip().lower(), new_email.strip(), new_password)
+                        if ok:
+                            st.success("Cuenta creada. Ve a la pestaña 'Iniciar Sesión' para entrar.")
+                        else:
+                            st.error(data)
+                    else:
+                        st.error("Completa los 3 campos para registrarte.")
 
         if st.button("👤 Acceder como Invitado", use_container_width=True):
             st.session_state["authenticated"] = True
+            st.session_state["username"] = None
             st.session_state["user_name"] = "Invitado"
             st.session_state["user_email"] = ""
             st.session_state["auth_type"] = "Acceso Invitado"
+            st.session_state["messages"] = []
             st.rerun()
 
 
