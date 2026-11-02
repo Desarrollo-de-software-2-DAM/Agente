@@ -516,15 +516,14 @@ El detalle completo está en [`docs/CONTRIBUTION.md`](docs/CONTRIBUTION.md). Res
 
 Las capturas de la aplicación ejecutándose con Docker Compose (construcción de imágenes, `docker compose ps`, pruebas, aplicación en el navegador y documentación de la API) se encuentran en la carpeta [`docs/evidencias/`](docs/evidencias/).
 
-<!--
+
 Cuando tengas las capturas en docs/evidencias/, descomenta y ajusta los nombres:
 
-![docker compose up](docs/evidencias/01_compose_up.png)
-![docker compose ps](docs/evidencias/02_compose_ps.png)
-![Aplicación en el navegador](docs/evidencias/03_app_chat.png)
-![API /docs](docs/evidencias/04_api_docs.png)
-![pytest](docs/evidencias/05_pytest.png)
--->
+![docker compose up](docs/evidencias/Docker_compose_up.png)
+![docker compose ps](docs/evidencias/Docker_compose_ps.png)
+![Aplicación en el navegador](docs/evidencias/ChatAgente.png)
+![pytest](docs/evidencias/Docker_pytest.png)
+
 
 ---
 
