@@ -13,11 +13,20 @@ from langchain_core.documents import Document
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from config import EMBEDDING_MODEL
-from utils.text_normalize import expand_query, keyword_search
+from utils.text_normalize import expand_query, keyword_search, normalize, tokenize
 
 # Configuración del registro de eventos (logging)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+def _is_store_contact_phone_query(query: str) -> bool:
+    tokens = set(tokenize(query))
+    device_terms = {
+        "celular", "smartphone", "movil", "modelo", "producto", "comprar",
+        "precio", "disponible", "venden", "catalogo",
+    }
+    return "telefono" in tokens and not tokens.intersection(device_terms)
 
 
 class VectorStoreManager:
@@ -167,7 +176,23 @@ class VectorStoreManager:
                     entry = fused.setdefault(key, [0.0, doc])
                     entry[0] += 1.0 / (60 + rank)
             ranked = sorted(fused.values(), key=lambda e: e[0], reverse=True)
-            return [doc for _, doc in ranked[:k]]
+            results = [doc for _, doc in ranked]
+
+            if _is_store_contact_phone_query(query):
+                official_contact = next(
+                    (
+                        doc for doc in self._all_documents
+                        if doc.metadata.get("source") == "datos_oficiales.md"
+                        and "telefono:" in normalize(doc.page_content)
+                    ),
+                    None,
+                )
+                if official_contact is not None:
+                    results = [official_contact] + [
+                        doc for doc in results if doc is not official_contact
+                    ]
+
+            return results[:k]
         except Exception as e:
             logger.error(f"Error al realizar la búsqueda: {e}")
             return []

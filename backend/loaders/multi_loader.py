@@ -202,7 +202,7 @@ def _load_html(file_path: str) -> List[Document]:
         logger.error(f"Error al cargar HTML {file_path}: {e}")
     return docs
 
-def load_single_document(file_path: str) -> List[Document]:
+def _load_single_document_raw(file_path: str) -> List[Document]:
     """
     Detecta el formato del archivo por su extensión y carga su contenido correspondiente.
     
@@ -238,6 +238,18 @@ def load_single_document(file_path: str) -> List[Document]:
     else:
         logger.warning(f"Extensión no soportada para el archivo: {file_path}")
         return []
+
+
+def _normalizar_marca(docs: List[Document]) -> List[Document]:
+    """Unifica el nombre de marca: algunos documentos dicen 'AmershOp'."""
+    for doc in docs:
+        doc.page_content = doc.page_content.replace("AmershOp", "Amershop")
+    return docs
+
+
+def load_single_document(file_path: str) -> List[Document]:
+    return _normalizar_marca(_load_single_document_raw(file_path))
+
 
 def load_all_documents(directory: str) -> List[Document]:
     """

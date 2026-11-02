@@ -1,7 +1,7 @@
 """
 Genera documents/datos_oficiales.md a partir de las fuentes únicas de verdad:
-  - documents/config_tienda.json   -> contacto, horarios, umbral de envío gratis, políticas
-  - documents/precios_envio.csv    -> tarifas y tiempos de envío por zona y peso
+  - documents/config_tienda.json    -> contacto, horarios, umbral de envío gratis, políticas
+  - documents/precios_envio.csv     -> tarifas y tiempos de envío por zona y peso
 
 Uso:  python scripts/generar_datos_oficiales.py
 Ejecútalo cada vez que cambies alguno de esos dos archivos y reindexa (borra chroma_db/).
@@ -13,6 +13,10 @@ import pandas as pd
 
 DOCS = Path(__file__).resolve().parent.parent / "documents"
 
+def _cop(x) -> str:
+    """4000000 -> $4.000.000 (sin notación científica, formato colombiano)."""
+    return f"${x:,.0f}".replace(",", ".")
+
 
 def generar() -> str:
     cfg = json.loads((DOCS / "config_tienda.json").read_text(encoding="utf-8"))
@@ -23,11 +27,13 @@ def generar() -> str:
     zonas = []
     for zona, g in envios.groupby("Zona", sort=False):
         zonas.append(f"### Zona {zona.replace('_', ' ')}\n")
-        zonas.append("| Peso (kg) | Estándar (USD) | Express (USD) | Días estándar | Días express |")
+        zonas.append(f"| Peso (kg) | Estándar ({m}) | Express ({m}) | Días estándar | Días express |")
         zonas.append("|---|---|---|---|---|")
-        for _, r in g.iterrows():
+        for _, r in g.iterrows():   
+            min_val = int(r.Peso_Min_kg) if r.Peso_Min_kg.is_integer() else r.Peso_Min_kg
+            max_val = int(r.Peso_Max_kg) if r.Peso_Max_kg.is_integer() else r.Peso_Max_kg
             zonas.append(
-                f"| {r.Peso_Min_kg:g} - {r.Peso_Max_kg:g} | ${r.Costo_Estandar:g} | ${r.Costo_Express:g} "
+                f"| {min_val} - {max_val} | {_cop(r.Costo_Estandar)} | {_cop(r.Costo_Express)} "
                 f"| {r.Tiempo_Estandar_Dias} | {r.Tiempo_Express_Dias} |"
             )
         zonas.append("")
@@ -49,7 +55,7 @@ def generar() -> str:
 {chr(10).join('- ' + p for p in cfg['pagos_aceptados'])}
 
 ## Envíos
-- Envío estándar GRATIS en compras superiores a ${env['umbral_envio_gratis']:g} {m}.
+- Envío estándar GRATIS en compras superiores a {_cop(env['umbral_envio_gratis'])} {m}.
 - Transportistas: {', '.join(env['transportistas_activos'])}.
 - Los tiempos de entrega están en días hábiles y dependen de la zona y del peso del paquete.
 
@@ -57,7 +63,7 @@ def generar() -> str:
 ## Devoluciones y garantía
 - Plazo de devolución: {pol['dias_limite_devolucion']} días naturales desde la recepción.
 - Garantía base: {pol['dias_garantia_base']} días (1 año) contra defectos de fabricación.
-- Tarifa por devolución por cambio de opinión: ${pol['costo_reestocaje_devolucion']:g} {m}.
+- Tarifa por devolución por cambio de opinión: {_cop(pol['costo_reestocaje_devolucion'])} {m}.
 """
 
 
