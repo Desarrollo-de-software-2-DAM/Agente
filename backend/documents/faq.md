@@ -10,9 +10,13 @@ Ve a "Iniciar Sesión" y selecciona "Olvidé mi contraseña". Ingresa tu correo 
 **3. ¿Puedo comprar como invitado sin crear cuenta?**
 Sí, puedes realizar compras como invitado, pero crear una cuenta te permite rastrear tus pedidos fácilmente y guardar métodos de pago.
 
+## Contacto
+**¿Cuál es el teléfono de Amershop?**
+Puedes comunicarte con nosotros al +57-800-AMERSHOP.
+
 ## Métodos de Pago
 **4. ¿Qué métodos de pago aceptan?**
-Aceptamos tarjetas de crédito y débito (Visa, MasterCard, American Express), PayPal, transferencias bancarias SPEI, y pagos en efectivo en tiendas de conveniencia (OXXO).
+Aceptamos tarjetas de crédito y débito (Visa, MasterCard, American Express), PayPal, Nequi, Daviplata y PSE.
 
 **5. ¿Es seguro ingresar mi tarjeta de crédito?**
 Absolutamente. Utilizamos encriptación SSL de 256 bits y nuestros procesos de pago cumplen con los estándares PCI-DSS. No almacenamos los datos completos de tu tarjeta.
@@ -64,4 +68,4 @@ Sí, tienes 72 horas para solicitar la corrección de una factura contactando a 
 Brindamos soporte técnico remoto básico. Para instalación física de equipos complejos, te recomendamos consultar con técnicos locales certificados.
 
 **20. ¿Cómo contacto al equipo de soporte?**
-Puedes contactarnos vía chat en vivo de lunes a viernes (9am-6pm) y sábados (10am-2pm), por correo electrónico a soporte@amershop.com, o llamando al +52-800-AMERSHOP.
+Puedes contactarnos vía chat en vivo de lunes a viernes (9am-6pm) y sábados (10am-2pm), por correo electrónico a soporte@amershop.com, o llamando al +57-800-AMERSHOP.

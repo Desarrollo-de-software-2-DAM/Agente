@@ -8,6 +8,7 @@ import pytest
 
 from loaders.multi_loader import load_all_documents
 from utils.text_normalize import expand_query, keyword_search, normalize, tokenize
+from vectorstore.chroma_store import VectorStoreManager
 
 DOCS_DIR = Path(__file__).resolve().parent.parent / "documents"
 
@@ -46,3 +47,28 @@ def test_catalogo_genera_ficha_por_producto(docs):
 def test_pdfs_sin_parrafos_redundantes(docs):
     pdfs = [d for d in docs if d.metadata.get("format") == "pdf"]
     assert pdfs and all("adicionalmente" not in d.page_content.lower() for d in pdfs)
+
+
+def test_pregunta_por_telefono_prioriza_datos_oficiales():
+    from langchain_core.documents import Document
+
+    producto = Document(
+        page_content="Producto: Teléfono inteligente disponible.",
+        metadata={"source": "catalogo_productos.xlsx"},
+    )
+    contacto = Document(
+        page_content="Teléfono: +57-800-AMERSHOP",
+        metadata={"source": "datos_oficiales.md"},
+    )
+
+    class FakeVectorStore:
+        def max_marginal_relevance_search(self, query, k, fetch_k):
+            return [producto]
+
+    manager = object.__new__(VectorStoreManager)
+    manager.vector_store = FakeVectorStore()
+    manager._all_documents = [producto, contacto]
+
+    results = manager.search("¿Cuál es su teléfono?", k=2)
+
+    assert results[0] is contacto

@@ -1,39 +1,40 @@
 {
     "tienda": {
-        "nombre": "AmershOp",
+        "nombre": "Amershop",
         "url": "https://www.amershop.com",
         "email_contacto": "contacto@amershop.com",
-        "telefono": "+52-800-AMERSHOP",
+        "telefono": "+57-800-AMERSHOP",
         "horario_atencion": "Lunes a Viernes 09:00 - 18:00, Sábados 10:00 - 14:00"
     },
     "configuracion_regional": {
         "moneda": "COP",
         "simbolo_moneda": "$",
-        "impuesto_iva_porcentaje": 16,
-        "idioma_por_defecto": "es-MX"
+        "impuesto_iva_porcentaje": 19,
+        "idioma_por_defecto": "es-CO"
     },
     "pagos_aceptados": [
         "Tarjeta de Crédito",
         "Tarjeta de Débito",
         "PayPal",
-        "Transferencia SPEI",
-        "Pago en OXXO"
+        "Nequi",
+        "Daviplata",
+        "PSE"
     ],
     "redes_sociales": {
-        "facebook": "https://facebook.com/amershop_mx",
+        "facebook": "https://facebook.com/amershop_col",
         "instagram": "https://instagram.com/amershop_tech",
         "twitter": "https://twitter.com/amershop_oficial"
     },
     "configuracion_envios": {
         "umbral_envio_gratis": 4000000,
         "transportistas_activos": [
-            "FedEx",
-            "DHL",
-            "Estafeta",
+            "Servientrega",
+            "Coordinadora",
+            "Envía",
             "Mensajería Local"
         ]
     },
-        "politicas": {
+    "politicas": {
         "dias_limite_devolucion": 30,
         "dias_garantia_base": 365,
         "costo_reestocaje_devolucion": 60000

@@ -7,3 +7,6 @@ textColor="#ffffff"
 
 [client]
 toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

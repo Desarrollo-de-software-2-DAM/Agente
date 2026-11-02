@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 
 # Configuración inicial de ventana
 st.set_page_config(
@@ -34,7 +33,7 @@ def query_backend_api(prompt: str, messages_history: list) -> str:
                 "chat_history": messages_history,
                 "username": st.session_state.get("username"),
             },
-            timeout=60,
+            timeout=120,
         )
         if response.status_code == 200:
             return response.json().get("answer", "Sin respuesta.")
@@ -149,34 +148,6 @@ def inject_custom_css():
             text-align: center;
             margin-bottom: 20px;
         }
-        @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.8); transform: scale(0.95); }
-            70% { box-shadow: 0 0 0 12px rgba(0, 255, 136, 0); transform: scale(1.05); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); transform: scale(0.95); }
-        }
-        .led-banner {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 14px;
-            background: rgba(12, 8, 25, 0.85);
-            border: 1px solid rgba(138, 43, 226, 0.6);
-            border-radius: 20px;
-            padding: 14px 22px;
-            margin: 15px 0 25px 0;
-            box-shadow: 0 0 25px rgba(138, 43, 226, 0.35), inset 0 0 15px rgba(138, 43, 226, 0.2);
-            backdrop-filter: blur(12px);
-        }
-        .led-dot {
-            width: 12px; height: 12px; background-color: #00ff88;
-            border-radius: 50%; display: inline-block;
-            animation: pulse-green 1.8s infinite;
-            box-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
-        }
-        .led-text {
-            color: #ffffff; font-weight: 700; font-size: 15px; letter-spacing: 1.8px; text-transform: uppercase;
-        }
-        .led-subtext { color: #b0b0e0; font-size: 13px; font-weight: 400; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -300,14 +271,6 @@ def main():
 
     suggestion_prompt = None
     if not st.session_state["messages"]:
-        st.markdown("""
-            <div class="led-banner">
-                <span class="led-dot"></span>
-                <span class="led-text">ACTIVO LAS 24 HORAS</span>
-                <span class="led-subtext">• ATENCIÓN Y SOPORTE CONTINUO 24/7</span>
-            </div>
-        """, unsafe_allow_html=True)
-
         suggestions = [
             "¿Cuál es la política de devoluciones?",
             "¿Cuánto cuesta el envío express?",
