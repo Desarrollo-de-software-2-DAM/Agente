@@ -1,22 +1,65 @@
 services:
+  # ==========================================
+  # 1. Base de datos PostgreSQL
+  # ==========================================
   db:
     image: postgres:16-alpine
     container_name: agente_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-agente}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia_esta_clave}
+      POSTGRES_DB: ${POSTGRES_DB:-agente_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-agente} -d $${POSTGRES_DB:-agente_db}"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
       - amershop_net
 
+  # ==========================================
+  # 2. Ollama: Agente LLM 100% Local (Sin tokens ni costo)
+  # ==========================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agente_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      - amershop_net
+
+  # ==========================================
+  # 2.1 Descarga automática del modelo en Ollama al iniciar
+  # ==========================================
+  ollama-pull:
+    image: curlimages/curl:latest
+    container_name: agente_ollama_pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - amershop_net
+    command: >
+      sh -c "echo 'Descargando modelo local ${OLLAMA_MODEL:-llama3.2} en Ollama...' &&
+             curl -s -f -X POST http://ollama:11434/api/pull -d '{\"model\": \"${OLLAMA_MODEL:-llama3.2}\", \"stream\": false}' &&
+             echo '✅ Modelo local descargado y listo para usar sin tokens.'"
+
+  # ==========================================
+  # 3. Backend: FastAPI + RAG + FAISS
+  # ==========================================
   backend:
     build:
       context: ./backend
@@ -28,24 +71,33 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-agente}:${POSTGRES_PASSWORD:-cambia_esta_clave}@db:5432/${POSTGRES_DB:-agente_db}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
       - HF_TOKEN=${HF_TOKEN:-}
     volumes:
-      # Índice vectorial FAISS: se genera en el primer arranque y se conserva entre reinicios
+      # Índice vectorial FAISS persistente
       - chroma_data:/app/chroma_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/', timeout=5)"]
-      interval: 30s
-      timeout: 6s
-      retries: 10
-      start_period: 120s
-      start_interval: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
     depends_on:
       db:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     networks:
       - amershop_net
 
+  # ==========================================
+  # 4. Frontend: Streamlit + Landing Page + Chat
+  # ==========================================
   frontend:
     build:
       context: ./frontend
@@ -55,6 +107,12 @@ services:
       - "8501:8501"
     environment:
       - BACKEND_URL=http://backend:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
     depends_on:
       backend:
         condition: service_healthy
@@ -68,6 +126,4 @@ networks:
 volumes:
   pgdata:
   chroma_data:
-  model_cache:
-
-  
+  ollama_data:

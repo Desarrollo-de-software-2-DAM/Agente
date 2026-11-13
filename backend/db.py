@@ -1,9 +1,11 @@
 """
-Acceso a la base de datos PostgreSQL: usuarios y su historial de chat.
+Acceso a la base de datos: usuarios y su historial de chat.
+Soporta PostgreSQL (producción / Docker) y SQLite (ejecución local sin Docker).
 """
 import os
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 import bcrypt
 from sqlalchemy import create_engine, DateTime, ForeignKey, Integer, String, Text
@@ -13,7 +15,12 @@ from config import AUTH_USERS
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+# Si no se define DATABASE_URL (ej. ejecución sin Docker), usa SQLite local automáticamente
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if not DATABASE_URL:
+    db_file = Path(__file__).resolve().parent / "agente_amershop.db"
+    DATABASE_URL = f"sqlite:///{db_file}"
+    logger.info(f"DATABASE_URL no configurada. Usando SQLite local en: {db_file}")
 
 
 class Base(DeclarativeBase):
@@ -48,7 +55,9 @@ class Message(Base):
     user: Mapped["User"] = relationship(back_populates="messages")
 
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+# Configuración del motor según SQLite o PostgreSQL
+connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
