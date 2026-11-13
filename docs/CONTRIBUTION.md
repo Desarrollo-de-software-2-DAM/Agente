@@ -1,70 +1,89 @@
-# De qué Trata este Documento?
+# Guía de contribución
 
-Este documento se establecerán las reglas para que puedas contribuir a este proyecto de Inteligencia Artificial de forma cómoda y ordenada.
+Este documento define el flujo de trabajo del equipo para colaborar en el repositorio de Amershop sin trabajar directamente sobre la rama de integración.
 
-## Antes de Empezar
-
-Antes de empezar necesitas clonar el repositorio:
+## 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/Desarrollo-de-software-2-DAM/Agente.git
 cd Agente
 ```
 
-## Actualizar el Repositorio Local
+## 2. Actualizar `develop` y crear una rama de trabajo
 
-Punto importante a la hora de modificar el proyecto, la rama `develop` es la rama con la que se trabajará con el fin de no afectar la rama principal.
-
-Luego tendrás que crear una rama con la cual podrás modificar libremente. 
+La rama `develop` es la rama de integración del equipo. Antes de comenzar una tarea:
 
 ```bash
-git checkout develop
+git switch develop
 git pull origin develop
-git checkout -b feature/nombre-de-tu-tarea
+git switch -c feature/nombre-de-la-tarea
 ```
 
-## Subir Avances a la Rama Develop
+Utilizar nombres breves y descriptivos, por ejemplo `feature/documentacion-entrega-1` o `fix/pruebas-rag`.
 
-después de realizar los cambios:
+## 3. Registrar los cambios
+
+Revisar los archivos modificados:
 
 ```bash
-git add .
-git commit -m "prefijo: descripción del cambio"
+git status
+git diff
 ```
 
-Cuando vayas a subir la rama por primera vez:
+Agregar y confirmar los cambios relacionados con la tarea:
 
 ```bash
-git push -u origin feature/nombre-de-tu-tarea
+git add README.md docs/
+git commit -m "docs: actualiza documentación de la primera entrega"
 ```
 
-Las siguientes veces que vayas a hacerlo desde la misma rama:
+Prefijos acordados:
+
+| Prefijo | Uso |
+|---|---|
+| `feat` | Nueva funcionalidad |
+| `fix` | Corrección de un error |
+| `test` | Agregar o modificar pruebas |
+| `docs` | Documentación |
+| `refactor` | Reorganización interna sin cambiar el comportamiento |
+
+## 4. Publicar la rama
+
+Primera publicación:
+
+```bash
+git push -u origin feature/nombre-de-la-tarea
+```
+
+Publicaciones posteriores:
 
 ```bash
 git push
 ```
 
-### Lista de prefijos con sus funcionalidad
+No hacer `push` directo a `develop` ni a `master`.
 
-| Prefijo | Función |
-| --- | --- |
-| `feat` | Nueva integración |
-| `fix` | Corrección de un error |
-| `test` | pruebas del proyecto |
-| `docs` | Modificación de la documentación |
+## 5. Crear un Pull Request
 
+Abrir un Pull Request desde la rama de trabajo hacia `develop`. Utilizar `.github/PULL_REQUEST_TEMPLATE.md` e incluir:
 
-## Pull Request
+- Qué cambió y por qué.
+- Enlace a la tarjeta de Trello relacionada.
+- Cómo se validaron los cambios (comandos y resultados).
+- Capturas o evidencias cuando correspondan.
+- Checklist completado.
+- Una persona revisora asignada.
 
-Todas las pull request que se realicen deben de integrarse primero a la rama `develop`, nunca se debe de hacer push directo, cuando se haga una pull request debe debes de llenar los siguientes campos:
+Antes de solicitar revisión, comprobar que la rama esté actualizada y que las pruebas relacionadas pasen.
 
-- **Qué Cambió** - Descripción corta de lo que se modificó.
-- **Tarjeta de trello** - Envío del enlace de la tarea que realizaste.
-- **Cómo se validó** - cómo comprobaste el cambio que hiciste.
-- **Imagenes de prueba** - Imagenes referentes al cambio (Obligatorio).
-- **Checklist** - Marcar el campo según corresponda la tarea que realizaste.
+## 6. Finalizar la tarea
 
-### Requisitos adicionales para el Pull Request
+Después de que el Pull Request sea revisado y fusionado:
 
-- Debe asignarse a una persona como revisora.
-- Debe incluir imágenes de prueba como evidencia de que el cambio funciona.
+```bash
+git switch develop
+git pull origin develop
+git branch -d feature/nombre-de-la-tarea
+```
+
+La eliminación de la rama local es opcional si se necesita conservarla para consulta.
