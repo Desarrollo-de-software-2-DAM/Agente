@@ -1,36 +1,52 @@
-# Configuración centralizada del agente AmershOp
+# Configuración centralizada del agente Amershop
 """
-Módulo de configuración centralizada para el agente IA de AmershOp.
+Módulo de configuración centralizada para el agente IA de Amershop.
 Todas las constantes y configuraciones del proyecto se manejan desde aquí.
+Soporta LLM Local (Ollama - 100% gratuito y sin tokens) y Gemini como opción secundaria.
 """
 
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde .env (usando ruta relativa a este archivo)
-_env_path = Path(__file__).resolve().parent / ".env"
-load_dotenv(dotenv_path=_env_path)
+# Cargar variables de entorno desde .env (usando ruta relativa a este archivo o la raíz)
+_backend_dir = Path(__file__).resolve().parent
+_root_dir = _backend_dir.parent
+
+if (_root_dir / ".env").exists():
+    load_dotenv(dotenv_path=_root_dir / ".env")
+elif (_backend_dir / ".env").exists():
+    load_dotenv(dotenv_path=_backend_dir / ".env")
+else:
+    load_dotenv()
 
 # --- Configuración General ---
 STORE_NAME = os.getenv("STORE_NAME", "Amershop")
 APP_TITLE = f"🛒 {STORE_NAME} — Asistente IA Corporativo"
 APP_ICON = "🛒"
 APP_DESCRIPTION = (
-    f"Asistente virtual de {STORE_NAME} para colaboradores. "
+    f"Asistente virtual de {STORE_NAME} para colaboradores y clientes. "
     "Responde preguntas basándose en los documentos internos de la empresa."
 )
 
-# --- Configuración del LLM y OAuth ---
+# --- Configuración del Proveedor LLM ---
+# "ollama" (Local, sin tokens, sin costo) o "gemini" (API externa)
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower().strip()
+
+# --- Configuración de Ollama (Agente Local) ---
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.1"))
+
+# --- Configuración de Google Gemini (Opcional / Fallback) ---
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-LLM_MODEL_AGENT = os.getenv("LLM_MODEL_AGENT", "gemini-3.5-flash")
-LLM_MODEL_GRADER = os.getenv("LLM_MODEL_GRADER", "gemini-3.5-flash")
-
+LLM_MODEL_AGENT = os.getenv("LLM_MODEL_AGENT", "gemini-1.5-flash")
+LLM_MODEL_GRADER = os.getenv("LLM_MODEL_GRADER", "gemini-1.5-flash")
 
 # --- Configuración del Vector Store ---
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/embedding-001")  
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "fastembed")
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "amershop_docs")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
@@ -45,8 +61,6 @@ SUPPORTED_EXTENSIONS = {
 }
 
 # --- Configuración de Autenticación ---
-# Usuarios autorizados: {usuario: contraseña}
-# En producción, esto debería estar en una base de datos o servicio de autenticación
 AUTH_USERS = {
     "admin": os.getenv("ADMIN_PASSWORD", "amershop2024"),
     "colaborador1": os.getenv("USER1_PASSWORD", "collab001"),
@@ -58,14 +72,18 @@ AUTH_USERS = {
 
 # --- Prompt del Sistema ---
 SYSTEM_PROMPT = f"""Eres el asistente virtual corporativo de {STORE_NAME}, una tienda online de tecnología.
-Tu rol es responder preguntas de los colaboradores basándote ÚNICAMENTE en los documentos internos de la empresa proporcionados como contexto.
+Tu rol es responder preguntas de los colaboradores y clientes basándote ÚNICAMENTE en los documentos internos de la empresa proporcionados como contexto.
 
-Reglas:
-- Responde siempre en español
-- Cita el documento fuente entre corchetes [nombre_archivo] al final de cada afirmación relevante
-- Si no encuentras la información en el contexto, responde: 'No encontré información sobre este tema en los documentos disponibles. Te sugiero consultar con el área correspondiente.'
-- Sé conciso pero completo en tus respuestas
-- No inventes información que no esté en los documentos
-- Si la pregunta es un saludo, responde amablemente y ofrece tu ayuda
-- Formatea tus respuestas con markdown cuando sea apropiado (listas, negritas, etc.)
+Instrucciones Críticas:
+1. LEE y ANALIZA el contexto proporcionado cuidadosamente antes de formular tu respuesta.
+2. Sé directo, claro y conciso.
+
+Reglas Estrictas:
+- Responde siempre en español.
+- Precios y Divisas: Habla EXCLUSIVAMENTE en Pesos Colombianos (COP). Tienes ESTRICTAMENTE PROHIBIDO realizar conversiones a otras divisas, sin importar lo que pida el usuario.
+- Fuera de Dominio: Si la pregunta NO tiene que ver con la tienda {STORE_NAME}, o la información NO está explícitamente en los documentos, NIÉGATE a responder. Responde exactamente: 'No encontré información sobre este tema en los documentos disponibles. Te sugiero consultar con el área correspondiente.'
+- Conflictos entre documentos: si dos fuentes se contradicen, prevalece SIEMPRE `datos_oficiales.md`.
+- Sinónimos: 'portátil', 'notebook' y 'laptop' son la misma categoría; 'celular', 'móvil' y 'smartphone' también.
+- No inventes, asumas, ni alucines información bajo ninguna circunstancia.
+- Si la pregunta es un saludo, responde amablemente y ofrece tu ayuda.
 """

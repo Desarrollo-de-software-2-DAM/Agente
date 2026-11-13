@@ -1,15 +1,17 @@
 """
 Amershop — Frontend Streamlit
+Integra Landing Page, Autenticación y Asistente IA Corporativo.
 """
 
 import os
 from pathlib import Path
 import requests
 import streamlit as st
+from landing import render_landing_page, get_backend_status
 
 # Configuración inicial de ventana
 st.set_page_config(
-    page_title="Amershop — Asistente IA",
+    page_title="Amershop — Asistente IA Corporativo",
     page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -40,7 +42,7 @@ def query_backend_api(prompt: str, messages_history: list) -> str:
         else:
             return f"Error en el servidor: {response.status_code} - {response.text}"
     except requests.exceptions.ConnectionError:
-        return "⚠️ No se pudo conectar con el servicio Backend. Verifica que el contenedor esté corriendo."
+        return "⚠️ No se pudo conectar con el servicio Backend. Verifica que el contenedor 'agente_backend' esté corriendo."
     except Exception as e:
         return f"Error de conexión: {e}"
 
@@ -93,7 +95,7 @@ def load_history_api(username: str) -> list:
 def inject_custom_css():
     st.markdown("""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
         .stMarkdown, p, h1, h2, h3, h4, h5, h6, li, label, div[data-testid="stMarkdownContainer"] {
             font-family: 'Outfit', sans-serif !important;
         }
@@ -107,7 +109,7 @@ def inject_custom_css():
             border-bottom: 1px solid rgba(138, 43, 226, 0.2) !important;
         }
         [data-testid="stSidebar"] {
-            background: rgba(12, 9, 25, 0.5) !important;
+            background: rgba(12, 9, 25, 0.7) !important;
             backdrop-filter: blur(16px);
             border-right: 1px solid rgba(138, 43, 226, 0.15);
         }
@@ -156,7 +158,8 @@ def render_sidebar():
     with st.sidebar:
         if os.path.exists(LOGO_PATH):
             st.image(LOGO_PATH, width=280)
-        st.markdown("<h1 style='text-align:center; color:#b388ff;'>Amershop</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align:center; color:#b388ff; font-size: 1.8rem; margin-bottom: 5px;'>Amershop</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color:#8888a0; font-size: 0.85rem; margin-bottom: 20px;'>Agente IA Corporativo</p>", unsafe_allow_html=True)
 
         if st.session_state.get("authenticated", False):
             user_name = st.session_state.get("user_name", "Usuario")
@@ -171,22 +174,56 @@ def render_sidebar():
                 </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("### Acciones Rápidas")
-        if st.button("✨ Nuevo Chat", use_container_width=True):
+        st.markdown("### 🧭 Navegación")
+        current = st.session_state.get("current_page", "landing")
+
+        if st.button("🏠 Landing Page", use_container_width=True, type="secondary" if current != "landing" else "primary"):
+            st.session_state["current_page"] = "landing"
+            st.rerun()
+
+        if st.button("💬 Chat del Asistente", use_container_width=True, type="secondary" if current != "chat" else "primary"):
+            # Si no está autenticado, asignamos modo invitado suave
+            if not st.session_state.get("authenticated", False):
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = None
+                st.session_state["user_name"] = "Invitado"
+                st.session_state["user_email"] = ""
+                st.session_state["auth_type"] = "Acceso Invitado"
+            st.session_state["current_page"] = "chat"
+            st.rerun()
+
+        if not st.session_state.get("authenticated", False) or st.session_state.get("username") is None:
+            if st.button("🔑 Iniciar Sesión / Registro", use_container_width=True, type="secondary" if current != "login" else "primary"):
+                st.session_state["current_page"] = "login"
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("### ⚡ Acciones Rápidas")
+        if st.button("✨ Limpiar / Nuevo Chat", use_container_width=True):
             st.session_state["messages"] = []
             st.rerun()
 
-        if st.session_state.get("authenticated", False):
-            st.markdown("---")
+        if st.session_state.get("authenticated", False) and st.session_state.get("username"):
             if st.button("🚪 Cerrar Sesión", use_container_width=True):
                 st.session_state["authenticated"] = False
                 st.session_state["username"] = None
+                st.session_state["user_name"] = None
                 st.session_state["messages"] = []
+                st.session_state["current_page"] = "landing"
                 st.rerun()
+
+        st.markdown("---")
+        st.markdown("""
+            <div style="font-size: 11px; color: #6e6e88; text-align: center;">
+                Backend: <code>FastAPI</code><br>
+                LLM: <code>Ollama Local (0 Tokens)</code><br>
+                Vector Store: <code>FAISS</code><br>
+                BD: <code>PostgreSQL 16</code>
+            </div>
+        """, unsafe_allow_html=True)
 
 
 def render_login():
-    inject_custom_css()
     col1, col2, col3 = st.columns([1, 2.2, 1])
     with col2:
         img_col1, img_col2, img_col3 = st.columns([1, 1.2, 1])
@@ -205,7 +242,7 @@ def render_login():
 
         with tab_login:
             with st.form("login_form"):
-                username = st.text_input("Usuario", placeholder="admin, ventas, o el que registraste")
+                username = st.text_input("Usuario", placeholder="admin, ventas, o tu usuario registrado")
                 password = st.text_input("Contraseña", type="password", placeholder="••••••••", key="login_password")
                 submitted = st.form_submit_button("Iniciar Sesión", use_container_width=True)
 
@@ -219,6 +256,7 @@ def render_login():
                             st.session_state["user_email"] = data.get("email", "")
                             st.session_state["auth_type"] = "Cuenta Registrada"
                             st.session_state["messages"] = load_history_api(data["username"])
+                            st.session_state["current_page"] = "chat"
                             st.rerun()
                         else:
                             st.error(data)
@@ -236,35 +274,31 @@ def render_login():
                     if new_username and new_email and new_password:
                         ok, data = register_backend_api(new_username.strip().lower(), new_email.strip(), new_password)
                         if ok:
-                            st.success("Cuenta creada. Ve a la pestaña 'Iniciar Sesión' para entrar.")
+                            st.success("Cuenta creada exitosamente. Ve a la pestaña 'Iniciar Sesión' para entrar.")
                         else:
                             st.error(data)
                     else:
-                        st.error("Completa los 3 campos para registrarte.")
+                        st.error("Completa todos los campos para registrarte.")
 
-        if st.button("👤 Acceder como Invitado", use_container_width=True):
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("👤 Acceder como Invitado (Sin Guardar Historial)", use_container_width=True):
             st.session_state["authenticated"] = True
             st.session_state["username"] = None
             st.session_state["user_name"] = "Invitado"
             st.session_state["user_email"] = ""
             st.session_state["auth_type"] = "Acceso Invitado"
             st.session_state["messages"] = []
+            st.session_state["current_page"] = "chat"
+            st.rerun()
+
+        if st.button("⬅️ Volver a la Landing Page", use_container_width=True):
+            st.session_state["current_page"] = "landing"
             st.rerun()
 
 
-def main():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-
-    if not st.session_state["authenticated"]:
-        render_login()
-        return
-
-    inject_custom_css()
-    render_sidebar()
-
-    st.header("¿En qué podemos ayudarte hoy?")
-    st.write("Resuelve tus dudas sobre productos, envíos, devoluciones y más.")
+def render_chat():
+    st.header("🛒 Asistente Virtual Inteligente")
+    st.write("Resuelve dudas sobre políticas, envíos, métodos de pago, garantías y catálogo de productos.")
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
@@ -276,19 +310,21 @@ def main():
             "¿Cuánto cuesta el envío express?",
             "¿En qué moneda están los precios?",
             "¿Tienen envío gratuito?",
+            "¿Qué modelos de portátiles tienen?",
+            "¿Cuál es el número de teléfono de la tienda?"
         ]
-        cols = st.columns(2)
+        cols = st.columns(3)
         for i, s in enumerate(suggestions):
-            if cols[i % 2].button(s, key=f"sug_{i}"):
+            if cols[i % 3].button(s, key=f"sug_{i}", use_container_width=True):
                 suggestion_prompt = s
 
-    avatar_logo = LOGO_PATH if os.path.exists(LOGO_PATH) else "🐉"
+    avatar_logo = LOGO_PATH if os.path.exists(LOGO_PATH) else "🤖"
     for msg in st.session_state["messages"]:
         av = avatar_logo if msg["role"] == "assistant" else "👤"
         with st.chat_message(msg["role"], avatar=av):
             st.markdown(msg["content"])
 
-    user_input = st.chat_input("Escribe tu pregunta...")
+    user_input = st.chat_input("Escribe tu pregunta sobre Amershop...")
     prompt = suggestion_prompt or user_input
 
     if prompt:
@@ -297,10 +333,34 @@ def main():
             st.markdown(prompt)
 
         with st.chat_message("assistant", avatar=avatar_logo):
-            with st.spinner("✨ Preparando tu respuesta..."):
+            with st.spinner("🧠 Consultando base de conocimiento con IA Local..."):
                 answer = query_backend_api(prompt, st.session_state["messages"])
                 st.markdown(answer)
                 st.session_state["messages"].append({"role": "assistant", "content": answer})
+
+
+def main():
+    inject_custom_css()
+
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "landing"
+
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+
+    render_sidebar()
+
+    # Router de navegación
+    page = st.session_state.get("current_page", "landing")
+
+    if page == "landing":
+        render_landing_page()
+    elif page == "login":
+        render_login()
+    elif page == "chat":
+        render_chat()
+    else:
+        render_landing_page()
 
 
 if __name__ == "__main__":
