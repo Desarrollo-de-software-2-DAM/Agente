@@ -8,13 +8,20 @@ from langchain_core.documents import Document
 from agents.rag_agent import RAGAgent
 
 
+
 class FakeLLM:
     """LLM falso para pruebas deterministas sin conexión a Ollama/Gemini."""
+
     def __init__(self, response_text: str = "Respuesta simulada"):
         self.response_text = response_text
 
+    def __call__(self, prompt_value):
+        """Permite que LangChain utilice esta clase como Runnable."""
+        return self.response_text
+
     def invoke(self, *args, **kwargs):
         return self.response_text
+
 
 
 def test_rag_agent_query_success():
