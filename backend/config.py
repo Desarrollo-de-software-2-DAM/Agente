@@ -47,7 +47,7 @@ LLM_MODEL_GRADER = os.getenv("LLM_MODEL_GRADER", "gemini-1.5-flash")
 
 # --- Configuración del Vector Store ---
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "fastembed")
-CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+FAISS_PERSIST_DIR = os.getenv("FAISS_PERSIST_DIR", "./faiss_db")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "amershop_docs")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))

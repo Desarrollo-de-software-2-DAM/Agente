@@ -121,7 +121,7 @@ Además depende de un servicio externo: la **API de Google Gemini**, que genera 
 | Servicio | Imagen / build | Puerto publicado | Depende de | Persistencia |
 | :--- | :--- | :--- | :--- | :--- |
 | `db` | `postgres:16-alpine` | — (solo red interna) | — | volumen `pgdata` |
-| `backend` | `./backend/Dockerfile` | `8000:8000` | `db` (*healthy*) | volumen `chroma_data` (índice FAISS) |
+| `backend` | `./backend/Dockerfile` | `8000:8000` | `db` (*healthy*) | volumen `faiss_data` (índice FAISS) |
 | `frontend` | `./frontend/Dockerfile` | `8501:8501` | `backend` (*healthy*) | — |
 
 Los tres servicios comparten la red `amershop_net` (tipo *bridge*) y se comunican por nombre de servicio (por ejemplo, el frontend llama a `http://backend:8000`). Los servicios con *healthcheck* (`db` y `backend`) bloquean el arranque del siguiente hasta estar listos. Los contenedores ejecutan el código **empaquetado en la imagen**; no se montan las carpetas del proyecto.
@@ -154,7 +154,7 @@ Agente/
 │   │   ├── rag_agent.py        # Agente RAG (flujo principal)
 │   │   └── document_grader.py  # Evaluador de relevancia (disponible, no usado en el flujo principal)
 │   ├── loaders/multi_loader.py # Carga de PDF, DOCX, XLSX, PPTX, MD, CSV, JSON, HTML
-│   ├── vectorstore/chroma_store.py  # Índice FAISS y búsqueda híbrida
+│   ├── vectorstore/faiss_store.py  # Índice FAISS y búsqueda híbrida
 │   ├── utils/text_normalize.py # Normalización, sinónimos y búsqueda por palabras clave
 │   ├── scripts/
 │   │   ├── generar_datos_oficiales.py  # Genera datos_oficiales.md
@@ -229,7 +229,7 @@ LLM_MODEL_AGENT=gemini-3.8-flash
 LLM_MODEL_GRADER=gemini-3.8-flash
 
 # --- Vector store ---
-CHROMA_PERSIST_DIR=./chroma_db
+FAISS_PERSIST_DIR=./faiss_db
 COLLECTION_NAME=amershop_docs
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200
@@ -260,7 +260,7 @@ POSTGRES_DB=agente_db
 | `DOCUMENTS_DIR` | ➖ | Carpeta con los documentos a indexar (`./documents`). |
 | `STORE_NAME` | ➖ | Nombre de la tienda usado en la configuración. |
 | `HF_TOKEN` | ➖ | Token de Hugging Face. **Opcional**: el modelo de embeddings es público y se descarga sin token (aparece una advertencia inofensiva). Déjalo vacío si no tienes uno: un valor inválido puede hacer fallar la descarga. |
-| `CHROMA_PERSIST_DIR`, `COLLECTION_NAME`, `CHUNK_SIZE`, `CHUNK_OVERLAP` | ➖ | Definidas en `config.py`, pero el código actual usa valores fijos para estos parámetros. Se conservan para configuración futura. |
+| `FAISS_PERSIST_DIR=./faiss_db`, `COLLECTION_NAME`, `CHUNK_SIZE`, `CHUNK_OVERLAP` | ➖ | Definidas en `config.py`, pero el código actual usa valores fijos para estos parámetros. Se conservan para configuración futura. |
 
 > ⚠️ **Seguridad:** el archivo `.env` contiene secretos y está en `.gitignore`; **nunca lo subas a GitHub ni lo compartas**. Si una clave se expone, regenérala de inmediato. Las contraseñas del ejemplo son solo de relleno: cámbialas.
 
@@ -283,7 +283,7 @@ Para dejarlo en segundo plano: `docker compose up --build -d`.
 3. El backend crea las tablas, siembra los usuarios corporativos y, si el índice vectorial está vacío, **indexa los documentos** de `backend/documents/`.
 4. Cuando el backend responde (*healthy*), se inicia el frontend.
 
-> ⏳ **El primer arranque es más lento:** se construyen las imágenes, se descarga el modelo de embeddings y se indexan los documentos. Sigue el avance con `docker compose logs -f backend` y espera al mensaje `Application startup complete`. Con las imágenes ya construidas, el sistema queda listo en menos de un minuto. Los arranques siguientes reutilizan el índice guardado en el volumen `chroma_data`.
+> ⏳ **El primer arranque es más lento:** se construyen las imágenes, se descarga el modelo de embeddings y se indexan los documentos. Sigue el avance con `docker compose logs -f backend` y espera al mensaje `Application startup complete`. Con las imágenes ya construidas, el sistema queda listo en menos de un minuto. Los arranques siguientes reutilizan el índice guardado en el volumen `faiss_data`.
 
 **Verificar que todo funciona**
 
@@ -310,7 +310,7 @@ curl http://localhost:8000/       # → {"status":"ok","message":"Backend de Ame
 | Abrir una consola en el backend | `docker compose exec backend bash` |
 | Consultar PostgreSQL | `docker compose exec db psql -U agente -d agente_db` |
 
-> ℹ️ **Persistencia:** los usuarios y el historial viven en el volumen `pgdata` y el índice vectorial en `chroma_data`; ambos sobreviven a `docker compose down` y a `restart`. Solo `down -v` los elimina.
+> ℹ️ **Persistencia:** los usuarios y el historial viven en el volumen `pgdata` y el índice vectorial en `faiss_data`; ambos sobreviven a `docker compose down` y a `restart`. Solo `down -v` los elimina.
 >
 > **Reindexar tras cambiar los documentos** (`backend/documents/`): los documentos se copian dentro de la imagen y el índice solo se genera cuando está vacío, así que hay que reconstruir y vaciar el índice:
 >

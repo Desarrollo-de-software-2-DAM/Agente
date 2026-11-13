@@ -157,7 +157,7 @@ Agente/
 │   ├── loaders/
 │   │   └── multi_loader.py     # Carga de 8 formatos (PDF, DOCX, XLSX, etc.)
 │   ├── vectorstore/
-│   │   └── chroma_store.py     # Índice vectorial FAISS y búsqueda híbrida
+│   │   └── faiss_store.py     # Índice vectorial FAISS y búsqueda híbrida
 │   ├── utils/
 │   │   └── text_normalize.py   # Expansión de sinónimos y búsqueda léxica
 │   ├── scripts/
@@ -309,7 +309,7 @@ pytest tests -v
 | El agente dice "No se pudo conectar con Ollama" | El contenedor `agente_ollama` está iniciando o el modelo se está descargando. | Espera 1 minuto a que `ollama-pull` termine la descarga o ejecuta: `docker exec -it agente_ollama ollama pull llama3.2`. |
 | Servidor VPS con poca RAM se cuelga | La VPS no tiene memoria Swap habilitada y se satura la RAM física. | Sigue la [sección 2.2 de la guía de VPS](docs/DEPLOY_VPS.md) para habilitar 4GB de Swap o cambia a `OLLAMA_MODEL=llama3.2:1b`. |
 | `password authentication failed for user "agente"` | Se cambió la contraseña en `.env` pero el volumen `pgdata` mantiene la anterior. | Ejecuta `docker compose down -v` y vuelve a levantar con `docker compose up -d`. |
-| Se actualizaron documentos en `backend/documents/` pero el agente no los refleja | El índice FAISS ya estaba creado en el volumen `chroma_data`. | Ejecuta: `docker compose exec backend sh -c "rm -rf /app/chroma_db/*"` y reinicia con `docker compose restart backend`. |
+| Se actualizaron documentos en `backend/documents/` pero el agente no los refleja | El índice FAISS ya estaba creado en el volumen `faiss_data`. | Ejecuta: `docker compose exec backend sh -c "rm -rf /app/chroma_db/*"` y reinicia con `docker compose restart backend`. |
 
 ---
 
