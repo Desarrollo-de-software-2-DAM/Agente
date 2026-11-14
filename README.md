@@ -38,13 +38,14 @@ En la configuración predeterminada, la generación de respuestas se realiza loc
 7. [Instalación y ejecución con Docker Compose](#7-instalación-y-ejecución-con-docker-compose)
 8. [Uso de la aplicación](#8-uso-de-la-aplicación)
 9. [API del backend](#9-api-del-backend)
-10. [Pruebas automatizadas](#10-pruebas-automatizadas)
-11. [Instalación tradicional sin Docker](#11-instalación-tradicional-sin-docker)
-12. [Administración y solución de problemas](#12-administración-y-solución-de-problemas)
-13. [Documentación y evidencias](#13-documentación-y-evidencias)
-14. [Flujo de trabajo del equipo](#14-flujo-de-trabajo-del-equipo)
-15. [Alcance de las entregas](#15-alcance-de-las-entregas)
-16. [Equipo](#16-equipo)
+10. [Diagrama entidad relación](#10-diagrama-entidad-relación)
+11. [Pruebas automatizadas](#10-pruebas-automatizadas)
+12. [Instalación tradicional sin Docker](#11-instalación-tradicional-sin-docker)
+13. [Administración y solución de problemas](#12-administración-y-solución-de-problemas)
+14. [Documentación y evidencias](#13-documentación-y-evidencias)
+15. [Flujo de trabajo del equipo](#14-flujo-de-trabajo-del-equipo)
+16. [Alcance de las entregas](#15-alcance-de-las-entregas)
+17. [Equipo](#16-equipo)
 
 ---
 
@@ -372,7 +373,30 @@ La definición interactiva se encuentra en <http://localhost:8000/docs>.
 
 > **Alcance de seguridad:** el backend verifica credenciales y almacena contraseñas mediante bcrypt, pero la implementación revisada no utiliza tokens de sesión/JWT para proteger los endpoints de historial y chat. No debe presentarse como un sistema de autenticación de producción sin una revisión y un refuerzo adicional de autorización.
 
-## 10. Pruebas automatizadas
+## 10 Diagrama entidad relación
+
+```mermaid
+erDiagram
+    users ||--o{ messages : "tiene"
+
+    users {
+        int id PK "PRIMARY KEY"
+        varchar username UK "VARCHAR(64), NOT NULL, INDEX"
+        varchar email UK "VARCHAR(120), NULLABLE"
+        varchar password_hash "VARCHAR(255), NOT NULL"
+        timestamptz created_at "TIMESTAMPTZ, NOT NULL (UTC)"
+    }
+
+    messages {
+        int id PK "PRIMARY KEY"
+        int user_id FK "REFERENCES users(id), NOT NULL, INDEX"
+        varchar role "VARCHAR(16), NOT NULL ('user' | 'assistant')"
+        text content "TEXT, NOT NULL"
+        timestamptz created_at "TIMESTAMPTZ, NOT NULL (UTC)"
+    }
+```
+
+## 11. Pruebas automatizadas
 
 Las pruebas se encuentran en `backend/tests/`. El archivo `backend/pytest.ini` limita la recopilación al directorio `tests` y a los archivos `test_*.py`.
 
@@ -392,11 +416,11 @@ La suite cubre, entre otros aspectos, endpoints de la API, registro e inicio de 
 
 **Validación realizada en el entorno local del equipo el 13 de noviembre de 2026:** `40 passed, 3 warnings`. Los avisos correspondieron a advertencias de obsolescencia de `pytest-asyncio`, integración de embeddings de `langchain-community` y eventos de inicio de FastAPI; no fueron fallos de pruebas. Este resultado debe acompañarse de la captura actualizada en `docs/evidencias/` y mantenerse sincronizado con los cambios que finalmente se suban a GitHub.
 
-## 11. Instalación tradicional sin Docker
+## 12. Instalación tradicional sin Docker
 
 Esta modalidad ejecuta backend y frontend directamente en el equipo. Requiere Python 3.12 y un servicio Ollama local. PostgreSQL es opcional porque `backend/db.py` utiliza SQLite cuando no se configura `DATABASE_URL`.
 
-### 11.1 Preparar Ollama
+### 12.1 Preparar Ollama
 
 Instalar Ollama siguiendo las instrucciones oficiales para el sistema operativo. Asegurarse de que el servicio esté activo y descargar el modelo configurado, por ejemplo:
 
@@ -404,7 +428,7 @@ Instalar Ollama siguiendo las instrucciones oficiales para el sistema operativo.
 ollama pull llama3.2
 ```
 
-### 11.2 Configurar variables
+### 12.2 Configurar variables
 
 Crear `.env` en la raíz del proyecto. Para ejecución fuera de Docker, cambiar:
 
@@ -416,7 +440,7 @@ OLLAMA_MODEL=llama3.2
 
 Si se usará PostgreSQL local, definir `DATABASE_URL` con la dirección, usuario, contraseña y base de datos correspondientes. Si se omite, se utilizará SQLite en `backend/agente_amershop.db`.
 
-### 11.3 Instalar e iniciar backend
+### 12.3 Instalar e iniciar backend
 
 En una terminal:
 
@@ -434,7 +458,7 @@ En Linux/macOS, activar el entorno con:
 source .venv/bin/activate
 ```
 
-### 11.4 Instalar e iniciar frontend
+### 12.4 Instalar e iniciar frontend
 
 En otra terminal, desde la raíz del repositorio:
 
@@ -450,7 +474,7 @@ Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución lo
 
 > Los scripts `iniciar_local.bat`, `iniciar_local.ps1` e `iniciar_local.sh` son auxiliares. La instalación manual anterior deja explícitos los pasos de creación de entornos e instalación de dependencias.
 
-## 12. Administración y solución de problemas
+## 13. Administración y solución de problemas
 
 | Síntoma | Comprobación o solución |
 |---|---|
@@ -464,7 +488,7 @@ Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución lo
 | Cambios documentales no aparecen en el agente | Reconstruir la imagen si los documentos se copian durante el build y revisar el procedimiento de reindexación. Ver la nota de ruta del índice en la sección 3 antes de borrar datos. |
 | `pytest` no encuentra pruebas | Ejecutar `docker compose exec backend pytest -q` desde la raíz del proyecto y verificar que `backend/pytest.ini` exista en la imagen reconstruida. |
 
-## 13. Documentación y evidencias
+## 14. Documentación y evidencias
 
 - [Guía de despliegue en VPS](docs/DEPLOY_VPS.md)
 - [Flujo de contribución](docs/CONTRIBUTION.md)
@@ -473,19 +497,19 @@ Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución lo
 
 La carpeta `docs/evidencias/` reúne capturas de construcción, estado de contenedores, pruebas y funcionamiento de la interfaz. Las capturas de pruebas deben corresponder a la versión final que se entrega.
 
-## 14. Flujo de trabajo del equipo
+## 15. Flujo de trabajo del equipo
 
 La rama `develop` es la rama de integración. Las tareas se desarrollan en ramas independientes y se integran mediante Pull Request hacia `develop`. No realizar `push` directo a la rama de integración.
 
 Consultar [docs/CONTRIBUTION.md](docs/CONTRIBUTION.md) para los comandos y reglas de commits, revisión y evidencias en Pull Requests.
 
-## 15. Alcance de las entregas
+## 16. Alcance de las entregas
 
 **Primera entrega:** preparación del proyecto, organización del repositorio, Dockerfiles, variables de entorno, Docker Compose, aplicación ejecutándose, documentación técnica y evidencias.
 
 **Segunda entrega:** servidor CI/CD, conexión automatizada con el repositorio, pipeline de checkout/build/test/docker build/delivery y despliegue automatizado. Estos elementos no se presentan como completados en esta documentación de la primera entrega.
 
-## 16. Equipo
+## 17. Equipo
 
 Proyecto académico desarrollado para el curso **Desarrollo de Software II** por:
 
