@@ -4,7 +4,7 @@ Verifica la indexación en disco temporal, búsqueda híbrida y limpieza.
 """
 
 from pathlib import Path
-from vectorstore.chroma_store import VectorStoreManager
+from vectorstore.faiss_store import VectorStoreManager
 from langchain_core.documents import Document
 
 

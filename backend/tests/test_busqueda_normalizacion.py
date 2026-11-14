@@ -8,7 +8,7 @@ import pytest
 
 from loaders.multi_loader import load_all_documents
 from utils.text_normalize import expand_query, keyword_search, normalize, tokenize
-from vectorstore.chroma_store import VectorStoreManager
+from vectorstore.faiss_store import VectorStoreManager
 
 DOCS_DIR = Path(__file__).resolve().parent.parent / "documents"
 

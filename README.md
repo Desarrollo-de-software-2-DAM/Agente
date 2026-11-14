@@ -1,14 +1,15 @@
-# 🛒 Amershop — Agente IA Corporativo 100% Local (Sin Tokens)
+# Amershop — Agente IA Corporativo
+
 
 <p align="center">
   <img src="https://img.shields.io/badge/PYTHON-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12">
-  <img src="https://img.shields.io/badge/STREAMLIT-FRONTEND-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit">
-  <img src="https://img.shields.io/badge/FASTAPI-BACKEND-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/LANGCHAIN-RAG-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" alt="LangChain">
-  <img src="https://img.shields.io/badge/LLM-OLLAMA%20LOCAL-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama Local LLM">
+  <img src="https://img.shields.io/badge/STREAMLIT-FRONTEND-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit Frontend">
+  <img src="https://img.shields.io/badge/FASTAPI-BACKEND-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI Backend">
+  <img src="https://img.shields.io/badge/LANGCHAIN-RAG-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" alt="LangChain RAG">
+  <img src="https://img.shields.io/badge/LLM-OLLAMA%20LOCAL-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama Local">
   <img src="https://img.shields.io/badge/POSTGRESQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/DOCKER-COMPOSE-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Compose">
-  <img src="https://img.shields.io/badge/TOKENS-0%20(GRATUITO)-brightgreen?style=for-the-badge" alt="0 Tokens">
+  <img src="https://img.shields.io/badge/TOKENS-0%20(GRATUITO)-brightgreen?style=for-the-badge" alt="Sin consumo de tokens externos">
 </p>
 
 <p align="center">
@@ -17,307 +18,479 @@
 
 ---
 
-Responde consultas sobre envíos, devoluciones, garantías, métodos de pago, políticas y catálogo de productos basándose estrictamente en los documentos internos de la empresa (**RAG**: *Retrieval-Augmented Generation*), ejecutándose **100% en local mediante Ollama, sin necesidad de tokens ni costos de API externos**.
 
-> 🚀 Proyecto de **Desarrollo de Software II**: arquitectura de microservicios con Docker Compose, Landing Page interactiva, autenticación segura con PostgreSQL, base de datos vectorial FAISS y guía de despliegue en VPS Linux.
+Aplicación web para consultar información de la tienda tecnológica **Amershop** sobre productos, envíos, devoluciones, garantías, medios de pago y políticas internas. El asistente utiliza una arquitectura RAG (*Retrieval-Augmented Generation*): recupera fragmentos de los documentos de la tienda y los utiliza como contexto para generar respuestas.
+
+En la configuración predeterminada, la generación de respuestas se realiza localmente mediante **Ollama**. No requiere una API Key de Gemini ni consume tokens de un servicio de IA externo para generar respuestas. Se necesita conexión a Internet durante la instalación para descargar imágenes, dependencias, el modelo y, cuando corresponda, el modelo de embeddings.
+
+> Proyecto académico de **Desarrollo de Software II**. Esta documentación describe la preparación y ejecución del proyecto con Docker y Docker Compose, correspondiente a la primera entrega. La automatización CI/CD con Jenkins corresponde a la segunda entrega.
 
 ---
 
-## ⚡ Inicio Rápido (En 1 Solo Comando)
+## Contenido
 
-No requiere API keys ni tokens de pago. Solo necesitas Docker Desktop (o Docker con Compose v2 en Linux) y Git.
+1. [Descripción y funcionalidades](#1-descripción-y-funcionalidades)
+2. [Tecnologías](#2-tecnologías)
+3. [Arquitectura](#3-arquitectura)
+4. [Estructura del repositorio](#4-estructura-del-repositorio)
+5. [Requisitos previos](#5-requisitos-previos)
+6. [Configuración de variables de entorno](#6-configuración-de-variables-de-entorno)
+7. [Instalación y ejecución con Docker Compose](#7-instalación-y-ejecución-con-docker-compose)
+8. [Uso de la aplicación](#8-uso-de-la-aplicación)
+9. [API del backend](#9-api-del-backend)
+10. [Pruebas automatizadas](#10-pruebas-automatizadas)
+11. [Instalación tradicional sin Docker](#11-instalación-tradicional-sin-docker)
+12. [Administración y solución de problemas](#12-administración-y-solución-de-problemas)
+13. [Documentación y evidencias](#13-documentación-y-evidencias)
+14. [Flujo de trabajo del equipo](#14-flujo-de-trabajo-del-equipo)
+15. [Alcance de las entregas](#15-alcance-de-las-entregas)
+16. [Equipo](#16-equipo)
+
+---
+
+## 1. Descripción y funcionalidades
+
+Amershop ofrece una interfaz web que permite:
+
+- Consultar información de productos y del catálogo.
+- Consultar políticas de envíos, devoluciones, garantías, pagos y atención.
+- Realizar consultas en lenguaje natural al agente RAG.
+- Registrarse e iniciar sesión.
+- Acceder como invitado; las conversaciones de invitado no se asocian a un usuario persistente.
+- Recuperar el historial de conversaciones de usuarios registrados.
+- Consultar el estado de los servicios desde la landing page.
+
+El sistema incluye normalización de consultas y búsqueda híbrida: recuperación vectorial con FAISS y búsqueda léxica basada en términos normalizados y sinónimos. La respuesta del agente utiliza los documentos recuperados como contexto; la calidad y precisión dependen de la vigencia y consistencia de esos documentos.
+
+## 2. Tecnologías
+
+| Área | Tecnología | Uso |
+|---|---|---|
+| Lenguaje | Python 3.12 | Backend y frontend |
+| Interfaz web | Streamlit | Landing page, autenticación y chat |
+| API | FastAPI + Uvicorn | Servicios REST |
+| Orquestación RAG | LangChain | Prompts y cadena de generación |
+| Modelo local | Ollama | Generación de respuestas |
+| Embeddings | FastEmbed | Representación vectorial de documentos |
+| Búsqueda vectorial | FAISS (`faiss-cpu`) | Índice y recuperación vectorial |
+| Base de datos relacional | PostgreSQL 16, SQLAlchemy y psycopg | Usuarios e historial |
+| Alternativa local de BD | SQLite | Ejecución local cuando no se define `DATABASE_URL` |
+| Contraseñas | bcrypt | Hash de contraseñas almacenadas |
+| Contenedores | Docker y Docker Compose | Construcción y orquestación |
+| Pruebas | pytest, pytest-asyncio y HTTPX | Validación automatizada |
+
+## 3. Arquitectura
+
+```text
+Navegador
+   |
+   v
+Frontend: Streamlit (8501)
+   |
+   | HTTP interno: http://backend:8000
+   v
+Backend: FastAPI (8000)
+   |                 |                  |
+   | SQL             | búsqueda         | generación
+   v                 v                  v
+PostgreSQL       FAISS + FastEmbed    Ollama
+(usuarios e      (índice y            (modelo local)
+ historial)       documentos)
+```
+
+### Servicios definidos en Docker Compose
+
+| Servicio | Imagen / construcción | Función | Puerto publicado |
+|---|---|---|---|
+| `db` | `postgres:16-alpine` | Usuarios e historial | No se publica al host; solo red interna |
+| `ollama` | `ollama/ollama:latest` | Servicio de modelos locales | `127.0.0.1:11434` |
+| `ollama-pull` | `curlimages/curl:latest` | Descarga el modelo configurado y finaliza | No aplica |
+| `backend` | `backend/Dockerfile` | API, lógica RAG y persistencia | `8000:8000` |
+| `frontend` | `frontend/Dockerfile` | Interfaz Streamlit | `8501:8501` |
+
+`ollama-pull` es un servicio auxiliar de una sola ejecución. Por eso, que su estado aparezca como `Exited` después de una descarga correcta es esperado; se debe comprobar que terminó con código de salida cero y que el backend está saludable.
+
+### Redes y volúmenes
+
+- Red `amershop_net` tipo `bridge` para la comunicación entre servicios.
+- Volumen `pgdata` para los datos de PostgreSQL.
+- Volumen `ollama_data` para los modelos descargados de Ollama.
+- Compose declara `faiss_data` montado en `/app/faiss_db`. **Nota de revisión:** el `VectorStoreManager` de la versión revisada utiliza por defecto `./faiss_db/` (dentro del contenedor: `/app/faiss_db`) y no recibe actualmente `FAISS_PERSIST_DIR`. Por tanto, el volumen `faiss_data` no respalda el índice activo hasta que se alinee la configuración del código o el punto de montaje. No debe afirmarse que el índice FAISS persiste en ese volumen antes de corregir y validar este detalle.
+
+## 4. Estructura del repositorio
+
+```text
+Agente/
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── README.md
+├── iniciar_local.bat
+├── iniciar_local.ps1
+├── iniciar_local.sh
+├── .github/
+│   ├── CODEOWNERS
+│   └── PULL_REQUEST_TEMPLATE.md
+├── backend/
+│   ├── Dockerfile
+│   ├── pytest.ini                 # Configuración de pytest en la copia local
+│   ├── config.py
+│   ├── db.py
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
+│   ├── agents/
+│   ├── documents/
+│   ├── loaders/
+│   ├── scripts/
+│   ├── tests/
+│   ├── utils/
+│   └── vectorstore/
+│       └── faiss_store.py        # Gestor FAISS (el nombre histórico contiene “faiss”)
+├── frontend/
+│   ├── Dockerfile
+│   ├── app.py
+│   ├── landing.py
+│   ├── requirements.txt
+│   ├── .streamlit/
+│   └── assets/
+└── docs/
+    ├── CONTRIBUTION.md
+    ├── CONTRADICCIONES.md
+    ├── DEPLOY_VPS.md
+    └── evidencias/
+        ├── README.md
+        ├── ChatAgente.png
+        ├── Docker_compose_ps.png
+        ├── Docker_compose_up.png
+        ├── Docker_pytest.png
+        └── Login.png
+```
+
+La estructura anterior representa los directorios y archivos principales. Los scripts de inicio local son auxiliares; para la ejecución reproducible de la entrega se recomienda Docker Compose.
+
+## 5. Requisitos previos
+
+### Ejecución recomendada con Docker
+
+- Git.
+- Docker Desktop en Windows/macOS o Docker Engine en Linux.
+- Docker Compose v2 (`docker compose`, con espacio).
+- Docker en ejecución antes de lanzar los comandos.
+- Conexión a Internet para descargar imágenes, dependencias, el modelo de Ollama y los embeddings cuando sea necesario.
+- Memoria y espacio en disco suficientes para las imágenes, el modelo seleccionado, los documentos y el índice. El consumo real depende del modelo de Ollama y del tamaño de la base documental.
+
+### Ejecución tradicional
+
+- Python 3.12.
+- Ollama instalado y ejecutándose en el equipo.
+- El modelo configurado descargado en Ollama.
+- PostgreSQL 16 solo si se desea usar PostgreSQL localmente. Si no se define `DATABASE_URL`, el backend usa SQLite local automáticamente.
+
+## 6. Configuración de variables de entorno
+
+Desde la raíz del repositorio, crear `.env` a partir de `.env.example`:
+
+**Windows PowerShell**
+
+```powershell
+Copy-Item .env.example .env
+```
+
+**Linux/macOS**
 
 ```bash
-# 1. Clonar el repositorio
-git clone https://github.com/Desarrollo-de-software-2-DAM/Agente.git
-cd Agente
-
-# 2. Crear archivo de variables de entorno
-cp .env.example .env        # Windows CMD: copy .env.example .env
-
-# 3. Construir y levantar todos los servicios con Docker Compose
-docker compose up --build
+cp .env.example .env
 ```
 
-Cuando los contenedores indiquen estado **healthy**, abre tu navegador en:
-- 🌐 **Landing Page & Chat Web:** <http://localhost:8501>
-- ⚡ **API REST del Backend:** <http://localhost:8000>
-- 📖 **Documentación Swagger UI:** <http://localhost:8000/docs>
-
----
-
-## 📑 Contenido
-
-1. [Descripción general](#-1-descripción-general)
-2. [Landing Page y Conectividad](#-2-landing-page-y-conectividad)
-3. [Arquitectura del Sistema](#-3-arquitectura-del-sistema)
-4. [Estructura del Proyecto](#-4-estructura-del-proyecto)
-5. [Tecnologías Utilizadas](#-5-tecnologías-utilizadas)
-6. [Configuración: Variables de Entorno](#-6-configuración-variables-de-entorno)
-7. [Ejecución con Docker Compose](#-7-ejecución-con-docker-compose)
-8. [Despliegue Paso a Paso en VPS](#-8-despliegue-paso-a-paso-en-vps)
-9. [Suite de Testing Automatizado](#-9-suite-de-testing-automatizado)
-10. [API REST del Backend](#-10-api-rest-del-backend)
-11. [Fuentes de Datos y Base de Conocimiento](#-11-fuentes-de-datos-y-base-de-conocimiento)
-12. [Solución de Problemas (Troubleshooting)](#-12-solución-de-problemas-troubleshooting)
-13. [Equipo y Licencia](#-13-equipo-y-licencia)
-
----
-
-## 📋 1. Descripción General
-
-El sistema opera con **cuatro contenedores principales** orquestados mediante Docker Compose:
-
-| Componente | Tecnología | Función |
-| :--- | :--- | :--- |
-| **Frontend** | Streamlit | **Landing Page corporativa**, autenticación, historial y chat interactivo con el asistente. |
-| **Backend** | FastAPI + RAG | API REST, orquestación RAG, autenticación bcrypt, normalización y búsqueda híbrida. |
-| **Motor LLM Local** | Ollama | Ejecución local del modelo Llama 3.2 (sin tokens, sin APIs de pago, 100% privado). |
-| **Base de Datos** | PostgreSQL 16 | Almacenamiento relacional de usuarios, credenciales y persistencia de chats. |
-
-### Principales Ventajas
-- 🪙 **0 Tokens consumidos:** El modelo corre dentro del contenedor Ollama en tu propio servidor/computadora.
-- 🎯 **Respuestas sin alucinaciones:** Responde únicamente con el contexto extraído de los documentos oficiales; si la respuesta no está en la base de conocimiento, lo indica claramente.
-- 🔍 **Búsqueda híbrida:** Fusión de búsqueda vectorial densa (**FAISS** con MMR) y búsqueda léxica normalizada con sinónimos en español (*Reciprocal Rank Fusion*).
-- 📂 **Multi-formato de ingesta (8 formatos):** PDF, DOCX, XLSX, PPTX, Markdown, CSV, JSON y HTML.
-- 🔐 **Seguridad empresarial:** Contraseñas protegidas mediante hash `bcrypt`, usuarios corporativos precargados (`admin`, `ventas`, `soporte`, etc.) y registro abierto.
-
----
-
-## 🌐 2. Landing Page y Conectividad
-
-La interfaz web (<http://localhost:8501>) cuenta con una **Landing Page de bienvenida** que conecta todos los módulos de la aplicación:
-
-1. **Sección Hero:** Resumen visual del agente IA local, badges de estado y botones de llamado a la acción (CTA) para entrar al chat, iniciar sesión o acceder como invitado.
-2. **Indicadores en Tiempo Real:** Monitorización en vivo del estado del backend, motor LLM activo, número de fragmentos indexados en FAISS y consumo de tokens.
-3. **Malla de Características:** Tarjetas interactivas con las ventajas clave (Búsqueda híbrida, 8 formatos, PostgreSQL, Docker).
-4. **Diagrama de Arquitectura Integrada:** Visualización del flujo de peticiones entre Frontend, Backend, Ollama, PostgreSQL y FAISS.
-5. **Referencia de la API REST:** Tabla con los endpoints disponibles y comandos cURL de ejemplo.
-6. **Navegación Fluida:** Barra lateral que permite alternar entre la Landing Page, el Chat IA y la pantalla de Autenticación sin perder el contexto.
-
----
-
-## 🏗️ 3. Arquitectura del Sistema
-
-```
-                         Navegador Web / Clientes Externos
-                                      │
-                                      │  http://localhost:8501
-                                      ▼
-                      ┌──────────────────────────────┐
-                      │    frontend  (Streamlit)     │
-                      │   Landing Page + Chat + Auth │
-                      └──────────────┬───────────────┘
-                                     │  HTTP (Puerto 8000)
-                                     ▼
-                      ┌──────────────────────────────┐
-                      │    backend  (FastAPI + RAG)  │
-                      │  Endpoints REST + Normalizer │
-                      └──────┬───────────────┬───────┘
-                             │               │
-                 SQL (psycopg)               │ Búsqueda Híbrida
-                             │               ▼
-            ┌────────────────┴───┐     ┌────────────────────────────┐
-            │ db (PostgreSQL 16) │     │ FAISS + FastEmbed          │
-            │ Usuarios + Historial│     │ Índice vectorial en disco  │
-            └────────────────────┘     └────────────────────────────┘
-                             │
-                             ▼
-              ┌──────────────────────────────┐
-              │   ollama  (Agente Local)     │
-              │  Llama 3.2 · Cero Tokens     │
-              └──────────────────────────────┘
-```
-
----
-
-## 📁 4. Estructura del Proyecto
-
-```
-Agente/
-├── docker-compose.yml          # Orquestación de db, ollama, backend y frontend
-├── .env.example                # Plantilla de variables de entorno (Ollama, BD)
-├── .env                        # Variables locales (ignorado en Git)
-├── README.md                   # Documentación principal
-├── docs/
-│   ├── DEPLOY_VPS.md           # Guía paso a paso para desplegar en VPS Linux
-│   ├── CONTRADICCIONES.md      # Fuentes únicas de verdad y resolución de conflictos
-│   ├── CONTRIBUTION.md         # Flujo de trabajo Git, ramas y pull requests
-│   └── evidencias/             # Capturas de ejecución y pruebas
-├── backend/
-│   ├── Dockerfile              # Imagen Python 3.12 con curl y pytest incluidos
-│   ├── main.py                 # FastAPI: endpoints /chat, /login, /register, /status
-│   ├── config.py               # Configuración centralizada (Ollama / Gemini / RAG)
-│   ├── db.py                   # Modelos SQLAlchemy, sesiones y hash bcrypt
-│   ├── requirements.txt        # Dependencias de producción
-│   ├── requirements-dev.txt    # Dependencias de testing (pytest, httpx)
-│   ├── agents/
-│   │   ├── rag_agent.py        # Agente RAG con soporte local para Ollama
-│   │   └── document_grader.py  # Evaluador de relevancia local
-│   ├── loaders/
-│   │   └── multi_loader.py     # Carga de 8 formatos (PDF, DOCX, XLSX, etc.)
-│   ├── vectorstore/
-│   │   └── chroma_store.py     # Índice vectorial FAISS y búsqueda híbrida
-│   ├── utils/
-│   │   └── text_normalize.py   # Expansión de sinónimos y búsqueda léxica
-│   ├── scripts/
-│   │   ├── generar_datos_oficiales.py  # Generador de datos_oficiales.md
-│   │   └── auditar_datos.py            # Auditor de inconsistencias regionales
-│   ├── documents/              # Documentos y base de conocimiento de la tienda
-│   └── tests/                  # Suite completa de pruebas automatizadas
-│       ├── conftest.py         # Base de datos SQLite en memoria y fixtures
-│       ├── test_api.py         # Tests de endpoints REST
-│       ├── test_loaders.py     # Tests de ingesta multi-formato
-│       ├── test_vectorstore.py # Tests de FAISS y búsqueda híbrida
-│       ├── test_rag_agent.py   # Tests del ciclo RAG con LLM simulado
-│       ├── test_busqueda_normalizacion.py
-│       └── test_datos_consistentes.py
-└── frontend/
-    ├── Dockerfile              # Imagen optimizada para Streamlit
-    ├── app.py                  # Router de vistas, sidebar y chat
-    ├── landing.py              # Landing Page corporativa con indicadores en vivo
-    ├── requirements.txt
-    ├── .streamlit/config.toml  # Tema visual oscuro personalizado
-    └── assets/                 # Logo e imágenes corporativas
-```
-
----
-
-## 🛠️ 5. Tecnologías Utilizadas
-
-- **Backend:** Python 3.12, FastAPI, Uvicorn, SQLAlchemy, Pydantic, Bcrypt, Psycopg.
-- **Frontend:** Streamlit con diseño UI moderno (*Outfit font*, tema violeta/oscuro).
-- **Inteligencia Artificial Local:** Ollama con `llama3.2` (sin tokens), LangChain Ollama.
-- **Base de Datos Vectorial:** FAISS (`faiss-cpu`), FastEmbed (`BAAI/bge-small-en-v1.5`), Reciprocal Rank Fusion.
-- **Base de Datos Relacional:** PostgreSQL 16 Alpine.
-- **Contenedores:** Docker y Docker Compose v2.
-- **Testing:** Pytest, HTTPX, TestClient de FastAPI, Fixtures en memoria.
-
----
-
-## ⚙️ 6. Configuración: Variables de Entorno
-
-El archivo `.env` en la raíz controla toda la configuración. Puedes partir de `.env.example`:
+Editar `.env` antes de iniciar el sistema. La configuración predeterminada usa Ollama:
 
 ```env
-# --- General ---
 STORE_NAME=Amershop
-
-# --- Agente Local (Sin Tokens) ---
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=llama3.2
 OLLAMA_TEMPERATURE=0.1
 
-# --- Base de Datos PostgreSQL ---
 POSTGRES_USER=agente
-POSTGRES_PASSWORD=cambia_esta_clave_segura
+POSTGRES_PASSWORD=reemplazar_por_una_clave_segura
 POSTGRES_DB=agente_db
 
-# --- Contraseñas de Usuarios Corporativos ---
-ADMIN_PASSWORD=amershop2024
-USER1_PASSWORD=collab001
-USER2_PASSWORD=collab002
-RRHH_PASSWORD=recursosh01
-VENTAS_PASSWORD=ventas2024
-SOPORTE_PASSWORD=soporte01
+ADMIN_PASSWORD=reemplazar
+USER1_PASSWORD=reemplazar
+USER2_PASSWORD=reemplazar
+RRHH_PASSWORD=reemplazar
+VENTAS_PASSWORD=reemplazar
+SOPORTE_PASSWORD=reemplazar
+
+HF_TOKEN=
+GOOGLE_API_KEY=
 ```
 
----
+### Variables principales
 
-## 🐳 7. Ejecución con Docker Compose
+| Variable | Uso | Observaciones |
+|---|---|---|
+| `STORE_NAME` | Nombre de la tienda | Predeterminado: `Amershop` |
+| `LLM_PROVIDER` | Proveedor de generación | `ollama` es el predeterminado; `gemini` requiere `GOOGLE_API_KEY` |
+| `OLLAMA_BASE_URL` | Dirección de Ollama | En Compose: `http://ollama:11434`; fuera de Docker: normalmente `http://localhost:11434` |
+| `OLLAMA_MODEL` | Modelo de Ollama | Predeterminado: `llama3.2` |
+| `OLLAMA_TEMPERATURE` | Temperatura de generación | Predeterminado: `0.1` |
+| `GOOGLE_API_KEY` | Clave para proveedor Gemini | No es necesaria con `LLM_PROVIDER=ollama` |
+| `LLM_MODEL_AGENT`, `LLM_MODEL_GRADER` | Modelos Gemini | Solo se utilizan al configurar el proveedor Gemini y los componentes correspondientes |
+| `HF_TOKEN` | Token opcional de Hugging Face | Puede permanecer vacío para modelos públicos compatibles |
+| `POSTGRES_USER` | Usuario PostgreSQL | Compose lo utiliza para iniciar la BD |
+| `POSTGRES_PASSWORD` | Contraseña PostgreSQL | Debe cambiarse antes de exponer el servicio |
+| `POSTGRES_DB` | Nombre de BD | Predeterminado: `agente_db` |
+| `ADMIN_PASSWORD`, `USER1_PASSWORD`, `USER2_PASSWORD`, `RRHH_PASSWORD`, `VENTAS_PASSWORD`, `SOPORTE_PASSWORD` | Contraseñas iniciales | Cambiar los valores antes de un despliegue compartido |
+| `FAISS_PERSIST_DIR` | Ruta configurada para el índice | En la versión revisada aparece en configuración, pero el gestor vectorial usa por defecto `./faiss_db/`; alinear código y volumen antes de confiar en esta variable |
 
-Para levantar toda la solución en tu máquina local:
+> **Seguridad:** `.env` contiene credenciales y no debe subirse al repositorio. `.env.example` es solo una plantilla. No reutilizar las contraseñas de ejemplo en un entorno compartido o de producción.
+
+## 7. Instalación y ejecución con Docker Compose
+
+### 7.1 Clonar el repositorio
 
 ```bash
-docker compose up --build -d
+git clone https://github.com/Desarrollo-de-software-2-DAM/Agente.git
+cd Agente
+git switch develop
+git pull origin develop
 ```
 
-### Comandos útiles para la gestión de contenedores:
+Si el equipo entrega una rama específica para revisión, cambiar a esa rama en lugar de `develop`.
+
+### 7.2 Crear y revisar `.env`
+
+Ejecutar los pasos de la [sección 6](#6-configuración-de-variables-de-entorno). Confirmar que el archivo `.env` está en la raíz, junto a `docker-compose.yml`.
+
+### 7.3 Construir e iniciar los servicios
+
 ```bash
-# Ver estado de salud de los servicios
+docker compose up -d --build
+```
+
+El arranque sigue estas dependencias:
+
+1. PostgreSQL inicia y ejecuta su comprobación de salud.
+2. Ollama inicia y espera estar disponible.
+3. `ollama-pull` solicita a Ollama la descarga del modelo configurado y termina cuando la descarga concluye.
+4. El backend inicia después de que PostgreSQL esté saludable y `ollama-pull` haya terminado correctamente.
+5. El frontend inicia cuando el backend está saludable.
+
+La primera ejecución puede tardar más debido a la descarga de imágenes, paquetes, modelo e embeddings, además de la indexación documental.
+
+### 7.4 Comprobar el estado
+
+```bash
 docker compose ps
+```
 
-# Monitorear logs del backend
-docker compose logs -f backend
+Estados esperados: `db`, `ollama`, `backend` y `frontend` en ejecución y saludables cuando terminen sus comprobaciones. `ollama-pull` puede aparecer como `Exited` después de finalizar correctamente.
 
-# Monitorear logs de Ollama
-docker compose logs -f ollama
+Consultar logs:
 
-# Detener los servicios conservando base de datos e índices
+```bash
+docker compose logs --tail=100 backend
+docker compose logs --tail=100 frontend
+docker compose logs --tail=100 ollama
+docker compose logs --tail=100 ollama-pull
+```
+
+### 7.5 Direcciones locales
+
+| Recurso | Dirección |
+|---|---|
+| Landing page y chat | <http://localhost:8501> |
+| API FastAPI | <http://localhost:8000> |
+| Swagger UI | <http://localhost:8000/docs> |
+| Estado detallado | <http://localhost:8000/status> |
+
+### 7.6 Detener y administrar
+
+```bash
+# Detener y eliminar contenedores, conservando volúmenes
 docker compose down
 
-# Detener y borrar volúmenes de datos
-docker compose down -v
+# Iniciar de nuevo
+docker compose up -d
+
+# Reconstruir imágenes después de modificar código o dependencias
+docker compose up -d --build
+
+# Ver estado
+docker compose ps
+
+# Seguir logs del backend
+docker compose logs -f backend
+
+# Abrir una terminal en el backend
+docker compose exec backend sh
 ```
 
----
+> `docker compose down -v` elimina también los volúmenes declarados y, por tanto, puede borrar los datos de PostgreSQL y los modelos descargados. Usarlo solo cuando se desee reiniciar esos datos y exista una copia de seguridad si es necesaria.
 
-## 🚀 8. Despliegue Paso a Paso en VPS
+## 8. Uso de la aplicación
 
-Para desplegar la aplicación en un servidor en la nube (Ubuntu / Debian en Hetzner, DigitalOcean, AWS, Oracle Cloud, etc.), consulta la guía detallada:
+1. Abrir <http://localhost:8501>.
+2. Desde la landing page, elegir ingresar, registrarse o continuar como invitado.
+3. Enviar preguntas relacionadas con los productos y políticas de Amershop.
+4. Los usuarios autenticados pueden consultar su historial; el modo invitado no lo persiste asociado a una cuenta.
+5. Consultar el estado del backend y del modelo desde la sección de indicadores de la landing page.
 
-👉 **[Guía Completa de Despliegue en VPS (docs/DEPLOY_VPS.md)](docs/DEPLOY_VPS.md)**
+Preguntas de prueba que se pueden utilizar (la respuesta concreta depende del contenido vigente de `backend/documents/`):
 
-Incluye:
-- Requisitos mínimos de hardware (CPU, RAM, disco).
-- Configuración de memoria Swap para evitar *Out-of-Memory*.
-- Instalación de Docker y Docker Compose v2.
-- Configuración de Nginx Reverse Proxy con soporte WebSockets.
-- Certificado SSL gratuito con Let's Encrypt (HTTPS).
-- Reglas de cortafuegos UFW para proteger puertos internos.
+- ¿Cuál es la política de devoluciones?
+- ¿Tienen envío gratuito?
+- ¿En qué moneda están los precios?
+- ¿Cuál es el horario de atención?
+- ¿Qué medios de pago acepta la tienda?
 
----
+## 9. API del backend
 
-## 🧪 9. Suite de Testing Automatizado
+Los endpoints observados en `backend/main.py` son:
 
-La suite de pruebas con `pytest` valida de forma aislada los endpoints de la API, la ingesta de documentos, la persistencia en base de datos y la búsqueda híbrida.
+| Método | Ruta | Función |
+|---|---|---|
+| `GET` | `/` | Comprobación general del backend |
+| `GET` | `/status` | Estado detallado, conexión a BD, proveedor LLM, usuarios, mensajes y documentos indexados |
+| `POST` | `/register` | Registro de usuario (`username`, `email`, `password`) |
+| `POST` | `/login` | Validación de credenciales (`username`, `password`) |
+| `GET` | `/history/{username}` | Consulta de historial de un usuario |
+| `POST` | `/chat` | Consulta al agente (`prompt`, `chat_history` y `username` opcional) |
+| `GET` | `/docs` | Documentación Swagger UI generada por FastAPI |
 
-### Ejecución dentro del contenedor de Docker (Recomendada):
+Ejemplo de consulta:
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"¿Cuál es la política de devoluciones?","chat_history":[]}'
+```
+
+La definición interactiva se encuentra en <http://localhost:8000/docs>.
+
+> **Alcance de seguridad:** el backend verifica credenciales y almacena contraseñas mediante bcrypt, pero la implementación revisada no utiliza tokens de sesión/JWT para proteger los endpoints de historial y chat. No debe presentarse como un sistema de autenticación de producción sin una revisión y un refuerzo adicional de autorización.
+
+## 10. Pruebas automatizadas
+
+Las pruebas se encuentran en `backend/tests/`. El archivo `backend/pytest.ini` limita la recopilación al directorio `tests` y a los archivos `test_*.py`.
+
+Ejecutar dentro del backend en Docker:
+
+```bash
+docker compose exec backend pytest -q
+```
+
+Para ver cada prueba:
+
 ```bash
 docker compose exec backend pytest tests -v
 ```
 
-### Ejecución local en tu equipo (con entorno virtual):
+La suite cubre, entre otros aspectos, endpoints de la API, registro e inicio de sesión, historial, ingesta de documentos, normalización/búsqueda y comportamiento del agente RAG con un modelo simulado.
+
+**Validación realizada en el entorno local del equipo el 13 de noviembre de 2026:** `40 passed, 3 warnings`. Los avisos correspondieron a advertencias de obsolescencia de `pytest-asyncio`, integración de embeddings de `langchain-community` y eventos de inicio de FastAPI; no fueron fallos de pruebas. Este resultado debe acompañarse de la captura actualizada en `docs/evidencias/` y mantenerse sincronizado con los cambios que finalmente se suban a GitHub.
+
+## 11. Instalación tradicional sin Docker
+
+Esta modalidad ejecuta backend y frontend directamente en el equipo. Requiere Python 3.12 y un servicio Ollama local. PostgreSQL es opcional porque `backend/db.py` utiliza SQLite cuando no se configura `DATABASE_URL`.
+
+### 11.1 Preparar Ollama
+
+Instalar Ollama siguiendo las instrucciones oficiales para el sistema operativo. Asegurarse de que el servicio esté activo y descargar el modelo configurado, por ejemplo:
+
 ```bash
-cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-pytest tests -v
+ollama pull llama3.2
 ```
 
----
+### 11.2 Configurar variables
 
-## 🔌 10. API REST del Backend
+Crear `.env` en la raíz del proyecto. Para ejecución fuera de Docker, cambiar:
 
-| Método | Endpoint | Descripción |
-| :---: | :--- | :--- |
-| `GET` | `/` | Comprobación de estado general (*healthcheck*). |
-| `GET` | `/status` | Métricas en tiempo real: estado de BD, proveedor LLM y documentos indexados. |
-| `POST` | `/chat` | Envía una consulta al agente RAG (`prompt`, `chat_history`, `username` opcional). |
-| `POST` | `/login` | Valida credenciales de usuario (`username`, `password`). |
-| `POST` | `/register` | Registra una nueva cuenta de usuario con hash `bcrypt`. |
-| `GET` | `/history/{username}` | Retorna el historial de chat persistido en PostgreSQL. |
-| `GET` | `/docs` | Interfaz interactiva Swagger UI / OpenAPI. |
+```env
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+```
 
----
+Si se usará PostgreSQL local, definir `DATABASE_URL` con la dirección, usuario, contraseña y base de datos correspondientes. Si se omite, se utilizará SQLite en `backend/agente_amershop.db`.
 
-## 🩺 12. Solución de Problemas (Troubleshooting)
+### 11.3 Instalar e iniciar backend
 
-| Síntoma | Causa Probable | Solución |
-| :--- | :--- | :--- |
-| El frontend dice "No se pudo conectar con el servicio Backend" | El backend aún se encuentra indexando documentos o compilando. | Revisa con `docker compose logs -f backend` hasta ver `Application startup complete`. |
-| El agente dice "No se pudo conectar con Ollama" | El contenedor `agente_ollama` está iniciando o el modelo se está descargando. | Espera 1 minuto a que `ollama-pull` termine la descarga o ejecuta: `docker exec -it agente_ollama ollama pull llama3.2`. |
-| Servidor VPS con poca RAM se cuelga | La VPS no tiene memoria Swap habilitada y se satura la RAM física. | Sigue la [sección 2.2 de la guía de VPS](docs/DEPLOY_VPS.md) para habilitar 4GB de Swap o cambia a `OLLAMA_MODEL=llama3.2:1b`. |
-| `password authentication failed for user "agente"` | Se cambió la contraseña en `.env` pero el volumen `pgdata` mantiene la anterior. | Ejecuta `docker compose down -v` y vuelve a levantar con `docker compose up -d`. |
-| Se actualizaron documentos en `backend/documents/` pero el agente no los refleja | El índice FAISS ya estaba creado en el volumen `chroma_data`. | Ejecuta: `docker compose exec backend sh -c "rm -rf /app/chroma_db/*"` y reinicia con `docker compose restart backend`. |
+En una terminal:
 
----
+```powershell
+cd backend
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
+```
 
-## 🛡️ 13. Equipo y Licencia
+En Linux/macOS, activar el entorno con:
 
-Desarrollado para el curso **Desarrollo de Software II**:
+```bash
+source .venv/bin/activate
+```
+
+### 11.4 Instalar e iniciar frontend
+
+En otra terminal, desde la raíz del repositorio:
+
+```powershell
+cd frontend
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m streamlit run app.py --server.port 8501
+```
+
+Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución local, debe apuntar a `http://localhost:8000`.
+
+> Los scripts `iniciar_local.bat`, `iniciar_local.ps1` e `iniciar_local.sh` son auxiliares. La instalación manual anterior deja explícitos los pasos de creación de entornos e instalación de dependencias.
+
+## 12. Administración y solución de problemas
+
+| Síntoma | Comprobación o solución |
+|---|---|
+| `env file .env not found` | Crear `.env` en la raíz con una copia de `.env.example`. |
+| Docker no conecta | Abrir Docker Desktop o iniciar el servicio Docker y volver a ejecutar `docker compose ps`. |
+| Frontend no conecta al backend | Revisar `docker compose ps` y `docker compose logs --tail=100 backend frontend`. Esperar a que el backend finalice el inicio. |
+| Ollama no responde | Revisar `docker compose logs ollama ollama-pull`; comprobar que el modelo configurado se descargó correctamente. |
+| Modelo no encontrado | Ejecutar `docker compose exec ollama ollama list`. Si falta, descargarlo con `docker compose exec ollama ollama pull llama3.2` (sustituir por el valor real de `OLLAMA_MODEL`). |
+| Puerto 8000 o 8501 ocupado | Cerrar el proceso que utiliza el puerto o cambiar la publicación correspondiente en `docker-compose.yml`. |
+| Contraseña PostgreSQL rechazada después de cambiar `.env` | El volumen existente puede conservar las credenciales iniciales. No ejecutar `down -v` sin confirmar que se pueden borrar los datos. Realizar respaldo y planificar la recreación de la BD. |
+| Cambios documentales no aparecen en el agente | Reconstruir la imagen si los documentos se copian durante el build y revisar el procedimiento de reindexación. Ver la nota de ruta del índice en la sección 3 antes de borrar datos. |
+| `pytest` no encuentra pruebas | Ejecutar `docker compose exec backend pytest -q` desde la raíz del proyecto y verificar que `backend/pytest.ini` exista en la imagen reconstruida. |
+
+## 13. Documentación y evidencias
+
+- [Guía de despliegue en VPS](docs/DEPLOY_VPS.md)
+- [Flujo de contribución](docs/CONTRIBUTION.md)
+- [Registro de contradicciones de datos](docs/CONTRADICCIONES.md)
+- [Índice de evidencias](docs/evidencias/README.md)
+
+La carpeta `docs/evidencias/` reúne capturas de construcción, estado de contenedores, pruebas y funcionamiento de la interfaz. Las capturas de pruebas deben corresponder a la versión final que se entrega.
+
+## 14. Flujo de trabajo del equipo
+
+La rama `develop` es la rama de integración. Las tareas se desarrollan en ramas independientes y se integran mediante Pull Request hacia `develop`. No realizar `push` directo a la rama de integración.
+
+Consultar [docs/CONTRIBUTION.md](docs/CONTRIBUTION.md) para los comandos y reglas de commits, revisión y evidencias en Pull Requests.
+
+## 15. Alcance de las entregas
+
+**Primera entrega:** preparación del proyecto, organización del repositorio, Dockerfiles, variables de entorno, Docker Compose, aplicación ejecutándose, documentación técnica y evidencias.
+
+**Segunda entrega:** servidor CI/CD, conexión automatizada con el repositorio, pipeline de checkout/build/test/docker build/delivery y despliegue automatizado. Estos elementos no se presentan como completados en esta documentación de la primera entrega.
+
+## 16. Equipo
+
+Proyecto académico desarrollado para el curso **Desarrollo de Software II** por:
+
 - [@Amerx12](https://github.com/Amerx12)
 - [@andres150921](https://github.com/andres150921)
 - [@DanielJH414](https://github.com/DanielJH414)
 
-Proyecto académico para **Amershop** — Plataforma Corporativa de IA. Todos los derechos reservados.
+Proyecto: **Amershop — Agente IA Corporativo**.

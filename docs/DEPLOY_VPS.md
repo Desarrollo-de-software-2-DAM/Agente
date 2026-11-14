@@ -1,234 +1,171 @@
-# 🚀 Guía de Despliegue Paso a Paso en Servidor VPS
-## Amershop — Agente IA Corporativo 100% Local (Sin Tokens)
+# Guía de despliegue de Amershop en una VPS
 
-Esta guía detalla el proceso completo para desplegar la plataforma **Amershop** en cualquier servidor virtual privado (**VPS**) ejecutando Linux (Ubuntu 22.04 LTS / 24.04 LTS o Debian 12), garantizando alta disponibilidad, seguridad, persistencia y funcionamiento **100% gratuito sin consumo de tokens ni APIs de pago**.
+Esta guía describe una instalación de Amershop en un servidor Linux con Docker Compose. El despliegue usa PostgreSQL, Ollama, FastAPI y Streamlit. Ajustar los recursos del servidor al modelo de Ollama y al volumen de documentos; no existe un consumo de memoria único para todos los modelos.
 
----
+> Esta guía es de despliegue técnico. Antes de exponer el sistema a Internet, revisar las notas de seguridad de este documento y reforzar la autenticación/autorización del backend.
 
-## 📋 1. Requisitos del Servidor VPS
+## 1. Requisitos
 
-| Perfil de Servidor | CPU | Memoria RAM | Disco SSD | Modelo Local Recomendado |
-| :--- | :---: | :---: | :---: | :--- |
-| **Económico / Básico** | 1 vCPU | 2 GB (+ 4GB Swap) | 25 GB | `llama3.2:1b` (Ultra liviano y rápido) |
-| **Estándar (Recomendado)** | 2 vCPU | 4 GB (+ 4GB Swap) | 40 GB | `llama3.2` (3B parámetros, equilibrado) |
-| **Avanzado / Concurrente** | 4 vCPU | 8–16 GB | 60 GB | `phi3:mini` o `mistral` |
+- VPS con Ubuntu 22.04/24.04 o Debian 12, o una distribución Linux compatible con Docker Engine.
+- Acceso SSH con permisos para instalar paquetes y administrar el firewall.
+- Git, Docker Engine y Docker Compose v2.
+- Memoria, CPU y disco suficientes para PostgreSQL, el modelo de Ollama, embeddings e índice. Revisar el consumo real con `free -h`, `df -h` y `docker stats`.
+- Dominio apuntando a la IP pública si se configurará HTTPS con Nginx y Certbot.
 
-> 💡 **Proveedores recomendados:** Hetzner Cloud (CX22 / CPX21), DigitalOcean (Droplet Basic), OVHcloud, Linode (Akamai), AWS Lightsail, o Oracle Cloud Free Tier (instancia ARM Ampere de hasta 24GB RAM gratuita).
+## 2. Preparar el servidor
 
----
-
-## 🛠️ 2. Paso 1: Configuración Inicial de la VPS
-
-Conéctate a tu VPS mediante SSH desde tu terminal (PowerShell, CMD o Terminal Linux/macOS):
+Conectarse por SSH:
 
 ```bash
-ssh root@TU_IP_VPS
+ssh usuario@IP_DE_LA_VPS
 ```
 
-### 2.1 Actualizar el sistema operativo
+Actualizar e instalar utilidades:
+
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl git ufw htop
 ```
 
-### 2.2 Configurar memoria Swap (Esencial para servidores de 2GB a 4GB de RAM)
-El archivo Swap evita que el proceso de Ollama o FAISS se cierre por falta de memoria física (*Out Of Memory*):
+La memoria Swap puede ayudar a evitar cierres por presión de memoria, pero no sustituye la RAM ni garantiza que cualquier modelo pueda ejecutarse con buen rendimiento. Si se habilita Swap, dimensionarla según el disco disponible y las necesidades del servidor.
+
+## 3. Instalar Docker
+
+Instalar Docker Engine y el plugin Compose siguiendo la documentación oficial de Docker para la distribución del servidor. Después comprobar:
 
 ```bash
-# Crear un archivo swap de 4 GB
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-
-# Hacerlo persistente tras reinicios
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
-
-Verifica la activación con `free -h`.
-
----
-
-## 🐳 3. Paso 2: Instalar Docker y Docker Compose v2
-
-Instala la versión oficial más reciente de Docker con el script oficial automatizado:
-
-```bash
-# Descargar e instalar Docker Engine
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Habilitar inicio automático con el sistema
-sudo systemctl enable docker
-sudo systemctl start docker
-
-# Verificar instalación
 docker --version
 docker compose version
+sudo systemctl enable --now docker
 ```
 
----
+Si el usuario de despliegue no pertenece al grupo `docker`, ejecutar los comandos con `sudo`.
 
-## 📦 4. Paso 3: Clonar o Subir el Proyecto a la VPS
+## 4. Obtener el proyecto
 
-### Opción A: Clonar desde repositorio Git (Recomendada)
+Clonar el repositorio:
+
 ```bash
+sudo mkdir -p /opt
+sudo chown "$USER":"$USER" /opt
 cd /opt
 git clone https://github.com/Desarrollo-de-software-2-DAM/Agente.git amershop-agente
-cd amershop-agente
-```
-
-### Opción B: Subir los archivos desde tu computadora local con SCP
-Si tienes los archivos en tu PC con Windows:
-```powershell
-# Ejecuta en PowerShell de tu computadora local:
-scp -r "c:\Users\amer\Desktop\Agente-1" root@TU_IP_VPS:/opt/amershop-agente
-```
-Luego en la VPS:
-```bash
 cd /opt/amershop-agente
+git switch develop
+git pull origin develop
 ```
 
----
+Si el equipo entrega una rama aprobada distinta, utilizar esa referencia en lugar de `develop`.
 
-## ⚙️ 5. Paso 4: Configurar Variables de Entorno (`.env`)
+## 5. Configurar variables de entorno
 
-Crea tu archivo `.env` a partir de la plantilla:
+Crear el archivo local:
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Asegúrate de configurar valores seguros para tu entorno de producción:
+Configuración base para Ollama en Compose:
 
 ```env
-# --- Configuración General ---
 STORE_NAME=Amershop
-
-# --- Proveedor Local (Sin tokens ni costo) ---
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://ollama:11434
-# Si tu VPS tiene 2GB de RAM usa llama3.2:1b; si tiene 4GB o más usa llama3.2
 OLLAMA_MODEL=llama3.2
 OLLAMA_TEMPERATURE=0.1
 
-# --- Base de datos PostgreSQL (Cambia las contraseñas) ---
 POSTGRES_USER=agente
-POSTGRES_PASSWORD=PonUnaClaveMuySegura_12345
+POSTGRES_PASSWORD=REEMPLAZAR_POR_UNA_CLAVE_LARGA_Y_UNICA
 POSTGRES_DB=agente_db
 
-# --- Contraseñas de usuarios corporativos iniciales ---
-ADMIN_PASSWORD=AdminSeguro2026!
-USER1_PASSWORD=ClaveCollab01!
-USER2_PASSWORD=ClaveCollab02!
-RRHH_PASSWORD=ClaveRRHH2026!
-VENTAS_PASSWORD=ClaveVentas2026!
-SOPORTE_PASSWORD=ClaveSoporte2026!
+ADMIN_PASSWORD=REEMPLAZAR
+USER1_PASSWORD=REEMPLAZAR
+USER2_PASSWORD=REEMPLAZAR
+RRHH_PASSWORD=REEMPLAZAR
+VENTAS_PASSWORD=REEMPLAZAR
+SOPORTE_PASSWORD=REEMPLAZAR
+
+HF_TOKEN=
+GOOGLE_API_KEY=
 ```
 
-Guarda los cambios con `Ctrl + O`, presiona `Enter` y sal con `Ctrl + X`.
-
----
-
-## 🚀 6. Paso 5: Despliegue con Docker Compose
-
-Ejecuta la construcción e inicio en segundo plano:
+`GOOGLE_API_KEY` no se requiere cuando `LLM_PROVIDER=ollama`. No utilizar las contraseñas de ejemplo en un servidor real. Proteger el archivo:
 
 ```bash
-docker compose up --build -d
+chmod 600 .env
 ```
 
-### ¿Qué sucede durante este comando?
-1. Se inicia **PostgreSQL 16** y crea la base de datos `agente_db`.
-2. Se inicia el motor **Ollama Local**.
-3. El servicio auxiliar `ollama-pull` contacta a Ollama y **descarga automáticamente el modelo `llama3.2`** (aprox. 2 GB).
-4. El contenedor **Backend (FastAPI)** compila dependencias, siembra usuarios corporativos en PostgreSQL e **indexa los documentos de la tienda en FAISS**.
-5. El contenedor **Frontend (Streamlit)** levanta la **Landing Page** y la interfaz de chat en el puerto `8501`.
+## 6. Construir e iniciar
 
-### Monitorear el progreso del despliegue:
+Desde `/opt/amershop-agente`:
+
 ```bash
-# Ver logs en tiempo real
-docker compose logs -f
-
-# O ver solo los logs del backend:
-docker compose logs -f backend
+docker compose up -d --build
 ```
 
-Espera hasta observar:
-```
-Application startup complete.
-✅ Modelo local descargado y listo para usar sin tokens.
-```
+Revisar el estado:
 
----
-
-## 🧪 7. Paso 6: Verificación y Testing en la VPS
-
-### 7.1 Verificar contenedores activos
 ```bash
 docker compose ps
 ```
-Deberás ver los servicios con estado `Up` y `healthy`:
-- `agente_db`: `Up (healthy)`
-- `agente_ollama`: `Up (healthy)`
-- `agente_backend`: `Up (healthy)`
-- `agente_frontend`: `Up (healthy)`
 
-### 7.2 Probar los endpoints REST vía cURL
+Revisar los logs si algún servicio no queda saludable:
+
 ```bash
-# Health check general
-curl http://localhost:8000/
+docker compose logs --tail=150 db
+docker compose logs --tail=150 ollama
+docker compose logs --tail=150 ollama-pull
+docker compose logs --tail=150 backend
+docker compose logs --tail=150 frontend
+```
 
-# Estado detallado del sistema
+`ollama-pull` es un servicio auxiliar que descarga el modelo y finaliza. Su estado `Exited` puede ser correcto cuando terminó con código cero. El backend depende de la finalización correcta de ese servicio y de la disponibilidad de PostgreSQL.
+
+Comprobar los endpoints desde la propia VPS:
+
+```bash
+curl http://localhost:8000/
 curl http://localhost:8000/status
 ```
 
-### 7.3 Ejecutar la suite completa de pruebas unitarias
-Los tests con `pytest` ya están incluidos en la imagen del contenedor:
+La interfaz queda en `http://IP_DE_LA_VPS:8501` mientras se mantenga la publicación de puerto actual. Para un despliegue detrás de Nginx, seguir la sección 7.
+
+## 7. Nginx y HTTPS
+
+### 7.1 Importante: limitar la exposición de los puertos
+
+El `docker-compose.yml` de desarrollo publica actualmente los puertos `8000:8000` y `8501:8501` en todas las interfaces del host. Para una VPS detrás de Nginx, cambiar esas publicaciones a loopback:
+
+```yaml
+backend:
+  ports:
+    - "127.0.0.1:8000:8000"
+
+frontend:
+  ports:
+    - "127.0.0.1:8501:8501"
+```
+
+No publicar PostgreSQL. Ollama ya está enlazado a `127.0.0.1:11434` en el Compose revisado. Después de modificar Compose:
 
 ```bash
-docker compose exec backend pytest tests -v
+docker compose up -d
 ```
 
-Deberás ver todas las pruebas aprobadas:
-```
-tests/test_api.py::test_health_check_endpoint PASSED
-tests/test_api.py::test_register_success PASSED
-tests/test_api.py::test_login_success PASSED
-tests/test_api.py::test_chat_endpoint_with_mock_agent PASSED
-tests/test_loaders.py::test_load_markdown PASSED
-tests/test_loaders.py::test_normalizar_marca PASSED
-tests/test_vectorstore.py::test_search_returns_relevant_document PASSED
-tests/test_rag_agent.py::test_rag_agent_query_success PASSED
-```
+### 7.2 Instalar Nginx y Certbot
 
----
-
-## 🔒 8. Paso 7: Configuración de Dominio, Nginx y SSL Gratuito (HTTPS)
-
-Para poner tu aplicación en producción accesible bajo un dominio (ejemplo: `amershop.tudominio.com`):
-
-### 8.1 Instalar Nginx y Certbot
 ```bash
 sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
-### 8.2 Crear configuración de Nginx con soporte WebSockets
-Crea el archivo `/etc/nginx/sites-available/amershop.conf`:
-
-```bash
-sudo nano /etc/nginx/sites-available/amershop.conf
-```
-
-Pega la siguiente configuración (reemplaza `tu-dominio.com` por tu dominio real):
+Crear `/etc/nginx/sites-available/amershop` y ajustar el dominio:
 
 ```nginx
 server {
     listen 80;
-    server_name tu-dominio.com www.tu-dominio.com;
+    server_name amershop.ejemplo.com;
 
-    # Frontend Streamlit (Landing + Chat)
     location / {
         proxy_pass http://127.0.0.1:8501;
         proxy_http_version 1.1;
@@ -241,7 +178,6 @@ server {
         proxy_read_timeout 86400;
     }
 
-    # Backend API Docs & Endpoints
     location /api/ {
         rewrite ^/api/(.*) /$1 break;
         proxy_pass http://127.0.0.1:8000;
@@ -253,91 +189,83 @@ server {
 }
 ```
 
-Habilita el sitio y reinicia Nginx:
+Habilitar y validar:
+
 ```bash
-sudo ln -s /etc/nginx/sites-available/amershop.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/amershop /etc/nginx/sites-enabled/amershop
 sudo nginx -t
-sudo systemctl restart nginx
+sudo systemctl reload nginx
 ```
 
-### 8.3 Obtener Certificado SSL Gratuito con Let's Encrypt
+Emitir el certificado cuando el DNS ya apunte a la VPS y los puertos 80/443 estén accesibles:
+
 ```bash
-sudo certbot --nginx -d tu-dominio.com -d www.tu-dominio.com
+sudo certbot --nginx -d amershop.ejemplo.com
 ```
 
-Sigue las instrucciones en pantalla. Certbot renovará automáticamente los certificados antes de que expiren.
+Después de habilitar HTTPS, comprobar la renovación automática con `sudo certbot renew --dry-run`.
 
----
+## 8. Firewall
 
-## 🛡️ 9. Paso 8: Configuración del Firewall (UFW)
-
-Protege tu servidor cerrando puertos internos para que solo el tráfico web y SSH sea permitido:
+Permitir SSH antes de habilitar el firewall para evitar perder el acceso remoto:
 
 ```bash
-# Permitir SSH (evita quedarte bloqueado)
 sudo ufw allow 22/tcp
-
-# Permitir tráfico web HTTP y HTTPS
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-
-# Opcional: Si accedes directamente sin Nginx (solo en modo desarrollo):
-# sudo ufw allow 8501/tcp
-# sudo ufw allow 8000/tcp
-
-# Activar el firewall
 sudo ufw enable
 sudo ufw status
 ```
 
----
+No abrir públicamente los puertos 5432 ni 11434. Si Nginx se utiliza como entrada, tampoco abrir 8000 ni 8501 a Internet; mantenerlos en loopback como se indicó en la sección 7.
 
-## 🔄 10. Paso 9: Mantenimiento y Operaciones Frecuentes
+## 9. Actualización y mantenimiento
 
-### Reiniciar el sistema
+Actualizar código desde la rama de integración:
+
 ```bash
 cd /opt/amershop-agente
-docker compose restart
+git switch develop
+git pull origin develop
+docker compose up -d --build
 ```
 
-### Detener los servicios sin perder datos
+Revisar estado y logs:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 backend frontend
+```
+
+Detener sin eliminar volúmenes:
+
 ```bash
 docker compose down
 ```
 
-### Actualizar el código desde Git
+Iniciar nuevamente:
+
 ```bash
-git pull origin main
-docker compose up --build -d
+docker compose up -d
 ```
 
-### Cambiar de modelo en Ollama (ej. cambiar a `llama3.2:1b`)
-Edita tu `.env`:
-```env
-OLLAMA_MODEL=llama3.2:1b
-```
-Luego descarga el nuevo modelo y reinicia el backend:
+### Copia de seguridad de PostgreSQL
+
 ```bash
-docker exec -it agente_ollama ollama pull llama3.2:1b
-docker compose restart backend
+docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backup_amershop_$(date +%Y%m%d).sql
 ```
 
-### Reindexar documentos tras modificar la carpeta `backend/documents/`
-```bash
-docker compose exec backend sh -c "rm -rf /app/chroma_db/*"
-docker compose restart backend
-```
+Guardar el respaldo fuera de la VPS y verificar periódicamente que pueda restaurarse.
 
-### Realizar copia de seguridad de la base de datos PostgreSQL
-```bash
-docker exec -t agente_db pg_dump -U agente agente_db > backup_$(date +%Y%m%d).sql
-```
+### Nota sobre el índice FAISS
 
----
+En la versión del código revisada, `VectorStoreManager` usa por defecto `./faiss_db/`, mientras que Compose monta `faiss_data` en `/app/faiss_db`. Esa discrepancia debe corregirse en código o en el punto de montaje antes de considerar persistente el índice en un volumen Docker. No borrar manualmente ninguna ruta de índice sin confirmar dónde está almacenado el índice utilizado por la instancia.
 
-## 🎯 Resumen de Accesos en Producción
+## 10. Consideraciones de seguridad antes de uso público
 
-- **Landing Page & Chat Web:** `https://tu-dominio.com` (o `http://TU_IP_VPS:8501`)
-- **API REST Backend:** `https://tu-dominio.com/api/` (o `http://TU_IP_VPS:8000`)
-- **Swagger UI (Documentación interactiva):** `http://TU_IP_VPS:8000/docs`
-- **Consumo de tokens:** **0 TOKENS (100% Gratuito y Privado)**.
+- Cambiar todas las contraseñas de `.env` y mantenerlo fuera de Git.
+- Exponer solo Nginx (80/443); mantener API, Ollama y PostgreSQL restringidos.
+- Revisar y restringir CORS: el backend actual permite todos los orígenes (`allow_origins=["*"]`).
+- Revisar autenticación y autorización: la API actual verifica credenciales en login, pero no utiliza JWT/sesiones para proteger los endpoints de historial y chat. No tratar esta versión como una plataforma lista para producción con datos sensibles.
+- Configurar copias de seguridad y probar restauraciones.
+- Mantener imágenes, dependencias y sistema operativo actualizados.
