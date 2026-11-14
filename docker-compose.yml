@@ -1,0 +1,113 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agente_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agente}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia_esta_clave}
+      POSTGRES_DB: ${POSTGRES_DB:-agente_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-agente} -d $${POSTGRES_DB:-agente_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - amershop_net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agente_ollama
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      - amershop_net
+
+  ollama-pull:
+    image: curlimages/curl:latest
+    container_name: agente_ollama_pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - amershop_net
+    command: >
+      sh -c "echo 'Descargando modelo local ${OLLAMA_MODEL:-llama3.2} en Ollama...' &&
+             curl -s -f -X POST http://ollama:11434/api/pull -d '{\"model\": \"${OLLAMA_MODEL:-llama3.2}\", \"stream\": false}' &&
+             echo '✅ Modelo local descargado y listo para usar sin tokens.'"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: agente_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-agente}:${POSTGRES_PASSWORD:-cambia_esta_clave}@db:5432/${POSTGRES_DB:-agente_db}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - faiss_data:/app/faiss_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    networks:
+      - amershop_net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: agente_frontend
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - amershop_net
+
+networks:
+  amershop_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  faiss_data: {}
+  ollama_data: {}
