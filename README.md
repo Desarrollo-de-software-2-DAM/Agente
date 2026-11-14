@@ -1,5 +1,24 @@
 # Amershop — Agente IA Corporativo
 
+
+<p align="center">
+  <img src="https://img.shields.io/badge/PYTHON-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12">
+  <img src="https://img.shields.io/badge/STREAMLIT-FRONTEND-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit Frontend">
+  <img src="https://img.shields.io/badge/FASTAPI-BACKEND-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI Backend">
+  <img src="https://img.shields.io/badge/LANGCHAIN-RAG-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" alt="LangChain RAG">
+  <img src="https://img.shields.io/badge/LLM-OLLAMA%20LOCAL-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama Local">
+  <img src="https://img.shields.io/badge/POSTGRESQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL 16">
+  <img src="https://img.shields.io/badge/DOCKER-COMPOSE-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Compose">
+  <img src="https://img.shields.io/badge/TOKENS-0%20(GRATUITO)-brightgreen?style=for-the-badge" alt="Sin consumo de tokens externos">
+</p>
+
+<p align="center">
+  <b>Plataforma inteligente corporativa con Landing Page integrada, Agente RAG local y despliegue automatizado para la tienda tecnológica Amershop.</b>
+</p>
+
+---
+
+
 Aplicación web para consultar información de la tienda tecnológica **Amershop** sobre productos, envíos, devoluciones, garantías, medios de pago y políticas internas. El asistente utiliza una arquitectura RAG (*Retrieval-Augmented Generation*): recupera fragmentos de los documentos de la tienda y los utiliza como contexto para generar respuestas.
 
 En la configuración predeterminada, la generación de respuestas se realiza localmente mediante **Ollama**. No requiere una API Key de Gemini ni consume tokens de un servicio de IA externo para generar respuestas. Se necesita conexión a Internet durante la instalación para descargar imágenes, dependencias, el modelo y, cuando corresponda, el modelo de embeddings.
@@ -127,7 +146,7 @@ Agente/
 │   ├── tests/
 │   ├── utils/
 │   └── vectorstore/
-│       └── chroma_store.py        # Gestor FAISS (el nombre histórico contiene “chroma”)
+│       └── faiss_store.py        # Gestor FAISS (el nombre histórico contiene “faiss”)
 ├── frontend/
 │   ├── Dockerfile
 │   ├── app.py
