@@ -96,7 +96,7 @@ PostgreSQL       FAISS + FastEmbed    Ollama
 - Red `amershop_net` tipo `bridge` para la comunicación entre servicios.
 - Volumen `pgdata` para los datos de PostgreSQL.
 - Volumen `ollama_data` para los modelos descargados de Ollama.
-- Compose declara `faiss_data` montado en `/app/faiss_db`. **Nota de revisión:** el `VectorStoreManager` de la versión revisada utiliza por defecto `./chroma_db/` (dentro del contenedor: `/app/chroma_db`) y no recibe actualmente `FAISS_PERSIST_DIR`. Por tanto, el volumen `faiss_data` no respalda el índice activo hasta que se alinee la configuración del código o el punto de montaje. No debe afirmarse que el índice FAISS persiste en ese volumen antes de corregir y validar este detalle.
+- Compose declara `faiss_data` montado en `/app/faiss_db`. **Nota de revisión:** el `VectorStoreManager` de la versión revisada utiliza por defecto `./faiss_db/` (dentro del contenedor: `/app/faiss_db`) y no recibe actualmente `FAISS_PERSIST_DIR`. Por tanto, el volumen `faiss_data` no respalda el índice activo hasta que se alinee la configuración del código o el punto de montaje. No debe afirmarse que el índice FAISS persiste en ese volumen antes de corregir y validar este detalle.
 
 ## 4. Estructura del repositorio
 
@@ -224,7 +224,7 @@ GOOGLE_API_KEY=
 | `POSTGRES_PASSWORD` | Contraseña PostgreSQL | Debe cambiarse antes de exponer el servicio |
 | `POSTGRES_DB` | Nombre de BD | Predeterminado: `agente_db` |
 | `ADMIN_PASSWORD`, `USER1_PASSWORD`, `USER2_PASSWORD`, `RRHH_PASSWORD`, `VENTAS_PASSWORD`, `SOPORTE_PASSWORD` | Contraseñas iniciales | Cambiar los valores antes de un despliegue compartido |
-| `FAISS_PERSIST_DIR` | Ruta configurada para el índice | En la versión revisada aparece en configuración, pero el gestor vectorial usa por defecto `./chroma_db/`; alinear código y volumen antes de confiar en esta variable |
+| `FAISS_PERSIST_DIR` | Ruta configurada para el índice | En la versión revisada aparece en configuración, pero el gestor vectorial usa por defecto `./faiss_db/`; alinear código y volumen antes de confiar en esta variable |
 
 > **Seguridad:** `.env` contiene credenciales y no debe subirse al repositorio. `.env.example` es solo una plantilla. No reutilizar las contraseñas de ejemplo en un entorno compartido o de producción.
 

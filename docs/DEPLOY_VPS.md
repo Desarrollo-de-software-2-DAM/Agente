@@ -259,7 +259,7 @@ Guardar el respaldo fuera de la VPS y verificar periódicamente que pueda restau
 
 ### Nota sobre el índice FAISS
 
-En la versión del código revisada, `VectorStoreManager` usa por defecto `./chroma_db/`, mientras que Compose monta `faiss_data` en `/app/faiss_db`. Esa discrepancia debe corregirse en código o en el punto de montaje antes de considerar persistente el índice en un volumen Docker. No borrar manualmente ninguna ruta de índice sin confirmar dónde está almacenado el índice utilizado por la instancia.
+En la versión del código revisada, `VectorStoreManager` usa por defecto `./faiss_db/`, mientras que Compose monta `faiss_data` en `/app/faiss_db`. Esa discrepancia debe corregirse en código o en el punto de montaje antes de considerar persistente el índice en un volumen Docker. No borrar manualmente ninguna ruta de índice sin confirmar dónde está almacenado el índice utilizado por la instancia.
 
 ## 10. Consideraciones de seguridad antes de uso público
 

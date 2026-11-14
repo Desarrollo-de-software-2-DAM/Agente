@@ -47,4 +47,4 @@ Los siguientes puntos aparecen como pendientes en el registro del proyecto y no 
    docker compose exec backend python scripts/auditar_datos.py
    ```
 
-> Antes de reindexar en Docker, revisar la nota sobre la discrepancia entre `FAISS_PERSIST_DIR`, la ruta predeterminada `./chroma_db/` y el volumen `faiss_data` en el README principal. No asumir que el volumen persistente contiene el índice hasta alinear esas rutas.
+> Antes de reindexar en Docker, revisar la nota sobre la discrepancia entre `FAISS_PERSIST_DIR`, la ruta predeterminada `./faiss_db/` y el volumen `faiss_data` en el README principal. No asumir que el volumen persistente contiene el índice hasta alinear esas rutas.

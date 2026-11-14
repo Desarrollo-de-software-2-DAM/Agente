@@ -33,7 +33,7 @@ from config import (
     DOCUMENTS_DIR, LLM_PROVIDER, OLLAMA_MODEL, OLLAMA_BASE_URL,
     STORE_NAME, APP_TITLE
 )
-from vectorstore.chroma_store import VectorStoreManager
+from vectorstore.faiss_store import VectorStoreManager
 from agents.rag_agent import RAGAgent
 
 # IMPORTAR COMPONENTES DE LA BASE DE DATOS
