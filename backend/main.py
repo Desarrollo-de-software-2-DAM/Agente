@@ -9,8 +9,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import List, Literal, Optional
 from sqlalchemy.orm import Session
 
 # Configurar logging
@@ -79,9 +79,13 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class ChatHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
 class QueryRequest(BaseModel):
     prompt: str
-    chat_history: List[dict] = []
+    chat_history: List[ChatHistoryMessage] = Field(default_factory=list)
     username: Optional[str] = None  # Permite asociar el chat a un usuario logueado
 
 
@@ -107,14 +111,17 @@ def startup_event():
     except Exception as e:
         logger.error(f"Error al inicializar agente RAG: {e}")
 
-    # 3. Indexar documentos si está vacío
+    # 3. Crear o actualizar el índice si cambió el contenido de los documentos.
     try:
-        if vector_store and vector_store.get_document_count() == 0:
-            docs_path = Path(DOCUMENTS_DIR)
-            if docs_path.exists() and any(docs_path.iterdir()):
-                logger.info(f"Indexando documentos desde {docs_path}...")
-                count = vector_store.reindex_from_directory(str(docs_path))
-                logger.info(f"Indexación inicial completada: {count} fragmentos.")
+        docs_path = Path(DOCUMENTS_DIR)
+        if (
+            vector_store
+            and docs_path.is_dir()
+            and not vector_store.has_current_sources(str(docs_path))
+        ):
+            logger.info(f"Indexando documentos desde {docs_path}...")
+            count = vector_store.reindex_from_directory(str(docs_path))
+            logger.info(f"Indexación completada: {count} fragmentos.")
     except Exception as e:
         logger.error(f"Error al indexar documentos iniciales: {e}")
 
@@ -249,11 +256,28 @@ def chat_endpoint(request: QueryRequest, db: Session = Depends(get_db)):
             db.add(user_msg)
             db.commit()
 
-        # Formatear historial para el agente
-        chat_history_formatted = [
-            ("human" if m["role"] == "user" else "ai", m["content"])
-            for m in request.chat_history[:-1]
-        ][-10:]
+        # La interfaz incluye el mensaje actual; no se debe repetir en el contexto.
+        history = request.chat_history
+        if (
+            history
+            and history[-1].role == "user"
+            and history[-1].content == request.prompt
+        ):
+            history = history[:-1]
+
+        # Enviar solo turnos completos y recientes al modelo.
+        complete_turns = []
+        pending_user_message = None
+        for message in history:
+            if message.role == "user":
+                pending_user_message = message.content
+            elif pending_user_message is not None:
+                complete_turns.append(
+                    ("human", pending_user_message)
+                )
+                complete_turns.append(("ai", message.content))
+                pending_user_message = None
+        chat_history_formatted = complete_turns[-20:]
 
         # Generar respuesta con IA Local / RAG
         result = agent.query(question=request.prompt, chat_history=chat_history_formatted)

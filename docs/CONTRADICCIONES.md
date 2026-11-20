@@ -47,4 +47,4 @@ Los siguientes puntos aparecen como pendientes en el registro del proyecto y no 
    docker compose exec backend python scripts/auditar_datos.py
    ```
 
-> Antes de reindexar en Docker, revisar la nota sobre la discrepancia entre `FAISS_PERSIST_DIR`, la ruta predeterminada `./faiss_db/` y el volumen `faiss_data` en el README principal. No asumir que el volumen persistente contiene el índice hasta alinear esas rutas.
+> El backend usa `FAISS_PERSIST_DIR` y el valor predeterminado `./faiss_db/` coincide con el volumen `faiss_data` montado en `/app/faiss_db`. Si cambian los documentos, el modelo de embeddings o el tamaño de fragmento, el índice se invalida y se reconstruye al iniciar.

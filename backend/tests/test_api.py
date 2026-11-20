@@ -146,3 +146,33 @@ def test_chat_endpoint_with_mock_agent(client, db_session, monkeypatch):
     assert len(saved_messages) == 2
     assert saved_messages[0].role == "user"
     assert saved_messages[1].role == "assistant"
+
+
+def test_chat_endpoint_passes_only_complete_history_turns(client, monkeypatch):
+    """Elimina el prompt duplicado y los mensajes sin pareja del historial."""
+    mock_agent = MagicMock()
+    mock_agent.query.return_value = {"answer": "Respuesta.", "sources": []}
+    monkeypatch.setattr(main_module, "agent", mock_agent)
+    prompt = "¿Cuál es el horario?"
+
+    response = client.post(
+        "/chat",
+        json={
+            "prompt": prompt,
+            "chat_history": [
+                {"role": "user", "content": "Pregunta anterior"},
+                {"role": "assistant", "content": "Respuesta anterior"},
+                {"role": "user", "content": "Turno incompleto"},
+                {"role": "user", "content": prompt},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    mock_agent.query.assert_called_once_with(
+        question=prompt,
+        chat_history=[
+            ("human", "Pregunta anterior"),
+            ("ai", "Respuesta anterior"),
+        ],
+    )
