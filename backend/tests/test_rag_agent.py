@@ -14,12 +14,15 @@ class FakeLLM:
 
     def __init__(self, response_text: str = "Respuesta simulada"):
         self.response_text = response_text
+        self.calls = 0
 
     def __call__(self, prompt_value):
         """Permite que LangChain utilice esta clase como Runnable."""
+        self.calls += 1
         return self.response_text
 
     def invoke(self, *args, **kwargs):
+        self.calls += 1
         return self.response_text
 
 
@@ -49,9 +52,24 @@ def test_rag_agent_query_no_documents():
     mock_vectorstore = MagicMock()
     mock_vectorstore.search.return_value = []
 
-    fake_llm = FakeLLM("No encontré información sobre este tema en los documentos disponibles.")
+    fake_llm = FakeLLM()
     agent = RAGAgent(vector_store_manager=mock_vectorstore, llm=fake_llm)
 
     result = agent.query("¿Venden cohetes espaciales?")
     assert "no encontré información" in result["answer"].lower()
     assert result["sources"] == []
+    assert fake_llm.calls == 0
+
+
+def test_rag_agent_greeting_without_documents():
+    """Conserva el saludo amable sin pedirle al modelo información no sustentada."""
+    mock_vectorstore = MagicMock()
+    mock_vectorstore.search.return_value = []
+    fake_llm = FakeLLM()
+    agent = RAGAgent(vector_store_manager=mock_vectorstore, llm=fake_llm)
+
+    result = agent.query("¡Buenos días!")
+
+    assert "hola" in result["answer"].lower()
+    assert result["sources"] == []
+    assert fake_llm.calls == 0

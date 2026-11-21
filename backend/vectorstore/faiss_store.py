@@ -6,13 +6,22 @@ Maneja la indexación, búsqueda y administración de documentos.
 import os
 import logging
 import pickle
-from typing import List
+import json
+import hashlib
+from typing import List, Optional
 from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from config import EMBEDDING_MODEL
+from config import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    COLLECTION_NAME,
+    EMBEDDING_MODEL,
+    FAISS_PERSIST_DIR,
+    SUPPORTED_EXTENSIONS,
+)
 from utils.text_normalize import expand_query, keyword_search, normalize, tokenize
 
 # Configuración del registro de eventos (logging)
@@ -35,7 +44,11 @@ class VectorStoreManager:
     Usa FAISS para almacenamiento y búsqueda vectorial con persistencia en disco.
     """
 
-    def __init__(self, persist_directory: str = './chroma_db/', collection_name: str = 'amershop_docs'):
+    def __init__(
+        self,
+        persist_directory: str = FAISS_PERSIST_DIR,
+        collection_name: str = COLLECTION_NAME,
+    ):
         """
         Inicializa el gestor de la base de datos vectorial.
 
@@ -45,17 +58,25 @@ class VectorStoreManager:
         """
         self.persist_directory = persist_directory
         self.collection_name = collection_name
-        self.index_path = os.path.join(persist_directory, f"{collection_name}.faiss")
+        self.index_path = os.path.join(persist_directory, "index.faiss")
         self.docs_path = os.path.join(persist_directory, f"{collection_name}_docs.pkl")
+        self.store_config_path = os.path.join(
+            persist_directory, f"{collection_name}_config.json"
+        )
+        self._store_config = {
+            "schema_version": 1,
+            "embedding_model": EMBEDDING_MODEL,
+            "chunk_size": CHUNK_SIZE,
+            "chunk_overlap": CHUNK_OVERLAP,
+        }
+        self._source_fingerprint: Optional[str] = None
 
         try:
-            # Inicializar FastEmbed (local, súper ligero, sin PyTorch)
-            self.embeddings = FastEmbedEmbeddings()
+            self.embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
 
-            # Configurar el divisor de texto
             self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200
+                chunk_size=CHUNK_SIZE,
+                chunk_overlap=CHUNK_OVERLAP,
             )
 
             # Crear directorio de persistencia si no existe
@@ -75,25 +96,88 @@ class VectorStoreManager:
     def _load_existing(self):
         """Intenta cargar un índice FAISS existente desde disco."""
         try:
-            from langchain_community.vectorstores import FAISS
-            if os.path.exists(self.index_path + ".index") or os.path.exists(os.path.join(self.persist_directory, "index.faiss")):
-                self.vector_store = FAISS.load_local(
-                    self.persist_directory,
-                    self.embeddings,
-                    allow_dangerous_deserialization=True
+            index_file = Path(self.index_path)
+            faiss_docstore_path = Path(self.persist_directory) / "index.pkl"
+            has_persisted_files = any(
+                path.exists()
+                for path in (
+                    index_file,
+                    faiss_docstore_path,
+                    Path(self.docs_path),
+                    Path(self.store_config_path),
                 )
-                logger.info("Índice FAISS cargado desde disco.")
+            )
+            if not has_persisted_files:
+                return
+
+            try:
+                with open(self.store_config_path, "r", encoding="utf-8") as file:
+                    manifest = json.load(file)
+            except (OSError, json.JSONDecodeError):
+                manifest = None
+
+            if not isinstance(manifest, dict) or manifest.get("settings") != self._store_config:
+                self._discard_persisted_store(
+                    "El índice no tiene metadatos compatibles o cambió su configuración."
+                )
+                return
+
+            self._source_fingerprint = manifest.get("source_fingerprint")
+
+            if not index_file.exists() and not faiss_docstore_path.exists():
+                if os.path.exists(self.docs_path):
+                    with open(self.docs_path, "rb") as file:
+                        self._all_documents = pickle.load(file)
+                    if not self._all_documents and self._source_fingerprint is not None:
+                        return
+                self._discard_persisted_store("El índice FAISS está incompleto.")
+                return
+
+            if not index_file.exists() or not faiss_docstore_path.exists():
+                self._discard_persisted_store("El índice FAISS está incompleto.")
+                return
+
+            from langchain_community.vectorstores import FAISS
+            self.vector_store = FAISS.load_local(
+                self.persist_directory,
+                self.embeddings,
+                allow_dangerous_deserialization=True
+            )
+            logger.info("Índice FAISS cargado desde disco.")
 
             # Cargar documentos guardados
             if os.path.exists(self.docs_path):
                 with open(self.docs_path, 'rb') as f:
                     self._all_documents = pickle.load(f)
                 logger.info(f"Se cargaron {len(self._all_documents)} documentos desde disco.")
+            else:
+                self._discard_persisted_store(
+                    "Falta la copia de documentos usada por la búsqueda léxica."
+                )
 
         except Exception as e:
             logger.warning(f"No se pudo cargar índice existente: {e}")
             self.vector_store = None
             self._all_documents = []
+            self._source_fingerprint = None
+
+    def _discard_persisted_store(self, reason: str) -> None:
+        """Descarta solo los archivos de este índice para permitir reconstruirlo."""
+        logger.info("%s Se reconstruirá desde los documentos fuente.", reason)
+        for path in (
+            Path(self.index_path),
+            Path(self.persist_directory) / "index.pkl",
+            Path(self.docs_path),
+            Path(self.store_config_path),
+        ):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.error("No se pudo eliminar %s: %s", path, exc)
+                raise
+        self.vector_store = None
+        self._all_documents = []
+        self._source_fingerprint = None
 
     def _save(self):
         """Guarda el índice FAISS y documentos a disco."""
@@ -104,6 +188,17 @@ class VectorStoreManager:
 
             with open(self.docs_path, 'wb') as f:
                 pickle.dump(self._all_documents, f)
+
+            with open(self.store_config_path, "w", encoding="utf-8") as file:
+                json.dump(
+                    {
+                        "settings": self._store_config,
+                        "source_fingerprint": self._source_fingerprint,
+                    },
+                    file,
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
         except Exception as e:
             logger.error(f"Error al guardar la base de datos: {e}")
@@ -225,15 +320,44 @@ class VectorStoreManager:
             logger.info("Limpiando la base de datos vectorial...")
             self.vector_store = None
             self._all_documents = []
+            self._source_fingerprint = None
 
-            # Eliminar archivos de disco
-            for f in Path(self.persist_directory).glob("*"):
-                if f.is_file():
-                    f.unlink()
+            for path in (
+                Path(self.index_path),
+                Path(self.persist_directory) / "index.pkl",
+                Path(self.docs_path),
+                Path(self.store_config_path),
+            ):
+                path.unlink(missing_ok=True)
 
             logger.info("Base de datos vectorial limpiada correctamente.")
         except Exception as e:
             logger.error(f"Error al limpiar la base de datos vectorial: {e}")
+
+    @staticmethod
+    def _fingerprint_directory(directory: str) -> str:
+        """Calcula una huella estable del contenido de los documentos indexables."""
+        root = Path(directory)
+        digest = hashlib.sha256()
+        files = sorted(
+            (
+                path for path in root.rglob("*")
+                if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS
+            ),
+            key=lambda path: path.relative_to(root).as_posix(),
+        )
+        for path in files:
+            digest.update(path.relative_to(root).as_posix().encode("utf-8"))
+            with path.open("rb") as file:
+                for block in iter(lambda: file.read(65536), b""):
+                    digest.update(block)
+        return digest.hexdigest()
+
+    def has_current_sources(self, directory: str) -> bool:
+        """Indica si el índice corresponde al contenido actual de los documentos."""
+        if self._source_fingerprint is None or not os.path.isdir(directory):
+            return False
+        return self._source_fingerprint == self._fingerprint_directory(directory)
 
     def reindex_from_directory(self, directory: str) -> int:
         """
@@ -260,8 +384,11 @@ class VectorStoreManager:
 
             if not documents:
                 logger.warning("No se encontraron documentos en el directorio especificado.")
+                self._source_fingerprint = self._fingerprint_directory(directory)
+                self._save()
                 return 0
 
+            self._source_fingerprint = self._fingerprint_directory(directory)
             return self.index_documents(documents)
 
         except Exception as e:

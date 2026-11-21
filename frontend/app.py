@@ -20,12 +20,13 @@ st.set_page_config(
 # URL del backend (obtenida desde la variable de entorno de Docker)
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+CHAT_REQUEST_TIMEOUT_SECONDS = 300
 
 _project_root = Path(__file__).resolve().parent
 LOGO_PATH = os.path.join(_project_root, "assets", "logo.jpg")
 
 
-def query_backend_api(prompt: str, messages_history: list) -> str:
+def query_backend_api(prompt: str, messages_history: list) -> tuple[str, list[str]]:
     """Envía la consulta al contenedor del Backend por HTTP."""
     try:
         response = requests.post(
@@ -35,16 +36,22 @@ def query_backend_api(prompt: str, messages_history: list) -> str:
                 "chat_history": messages_history,
                 "username": st.session_state.get("username"),
             },
-            timeout=120,
+            timeout=CHAT_REQUEST_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:
-            return response.json().get("answer", "Sin respuesta.")
+            data = response.json()
+            return data.get("answer", "Sin respuesta."), data.get("sources", [])
         else:
-            return f"Error en el servidor: {response.status_code} - {response.text}"
+            return f"Error en el servidor: {response.status_code} - {response.text}", []
     except requests.exceptions.ConnectionError:
-        return "⚠️ No se pudo conectar con el servicio Backend. Verifica que el contenedor 'agente_backend' esté corriendo."
+        return "⚠️ No se pudo conectar con el servicio Backend. Verifica que el contenedor 'agente_backend' esté corriendo.", []
+    except requests.exceptions.Timeout:
+        return (
+            "⚠️ El modelo tardó más de lo esperado y la solicitud superó "
+            f"{CHAT_REQUEST_TIMEOUT_SECONDS} segundos. Inténtalo nuevamente."
+        ), []
     except Exception as e:
-        return f"Error de conexión: {e}"
+        return f"Error de conexión: {e}", []
 
 
 def login_backend_api(username: str, password: str):
@@ -334,8 +341,10 @@ def render_chat():
 
         with st.chat_message("assistant", avatar=avatar_logo):
             with st.spinner("🧠 Consultando base de conocimiento con IA Local..."):
-                answer = query_backend_api(prompt, st.session_state["messages"])
+                answer, sources = query_backend_api(prompt, st.session_state["messages"])
                 st.markdown(answer)
+                if sources:
+                    st.text("Fuentes: " + ", ".join(sources))
                 st.session_state["messages"].append({"role": "assistant", "content": answer})
 
 

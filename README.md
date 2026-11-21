@@ -116,7 +116,8 @@ PostgreSQL       FAISS + FastEmbed    Ollama
 - Red `amershop_net` tipo `bridge` para la comunicación entre servicios.
 - Volumen `pgdata` para los datos de PostgreSQL.
 - Volumen `ollama_data` para los modelos descargados de Ollama.
-- Compose declara `faiss_data` montado en `/app/faiss_db`. **Nota de revisión:** el `VectorStoreManager` de la versión revisada utiliza por defecto `./faiss_db/` (dentro del contenedor: `/app/faiss_db`) y no recibe actualmente `FAISS_PERSIST_DIR`. Por tanto, el volumen `faiss_data` no respalda el índice activo hasta que se alinee la configuración del código o el punto de montaje. No debe afirmarse que el índice FAISS persiste en ese volumen antes de corregir y validar este detalle.
+- Volumen `faiss_data` montado en `/app/faiss_db`, que coincide con la ruta predeterminada `FAISS_PERSIST_DIR=./faiss_db` desde el directorio de trabajo del backend.
+- El índice registra el modelo de embeddings, la fragmentación y una huella del contenido indexado. Si cambian los parámetros o los documentos, el backend descarta únicamente los archivos de ese índice y lo reconstruye al iniciar.
 
 ## 4. Estructura del repositorio
 
@@ -237,6 +238,9 @@ GOOGLE_API_KEY=
 | `OLLAMA_BASE_URL` | Dirección de Ollama | En Compose: `http://ollama:11434`; fuera de Docker: normalmente `http://localhost:11434` |
 | `OLLAMA_MODEL` | Modelo de Ollama | Predeterminado: `llama3.2` |
 | `OLLAMA_TEMPERATURE` | Temperatura de generación | Predeterminado: `0.1` |
+| `EMBEDDING_MODEL` | Modelo de embeddings multilingüe de FastEmbed | Predeterminado: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`; cambiarlo requiere regenerar el índice |
+| `CHUNK_SIZE`, `CHUNK_OVERLAP` | Tamaño y solapamiento de fragmentos | Predeterminados: `600` y `100` caracteres; cambiar estos valores también regenera el índice |
+| `SEARCH_K` | Cantidad máxima de fragmentos recuperados | Predeterminado: `8` |
 | `GOOGLE_API_KEY` | Clave para proveedor Gemini | No es necesaria con `LLM_PROVIDER=ollama` |
 | `LLM_MODEL_AGENT`, `LLM_MODEL_GRADER` | Modelos Gemini | Solo se utilizan al configurar el proveedor Gemini y los componentes correspondientes |
 | `HF_TOKEN` | Token opcional de Hugging Face | Puede permanecer vacío para modelos públicos compatibles |
@@ -244,7 +248,7 @@ GOOGLE_API_KEY=
 | `POSTGRES_PASSWORD` | Contraseña PostgreSQL | Debe cambiarse antes de exponer el servicio |
 | `POSTGRES_DB` | Nombre de BD | Predeterminado: `agente_db` |
 | `ADMIN_PASSWORD`, `USER1_PASSWORD`, `USER2_PASSWORD`, `RRHH_PASSWORD`, `VENTAS_PASSWORD`, `SOPORTE_PASSWORD` | Contraseñas iniciales | Cambiar los valores antes de un despliegue compartido |
-| `FAISS_PERSIST_DIR` | Ruta configurada para el índice | En la versión revisada aparece en configuración, pero el gestor vectorial usa por defecto `./faiss_db/`; alinear código y volumen antes de confiar en esta variable |
+| `FAISS_PERSIST_DIR` | Ruta persistente del índice FAISS | Predeterminado: `./faiss_db/`; en Docker coincide con el volumen `faiss_data` montado en `/app/faiss_db` |
 
 > **Seguridad:** `.env` contiene credenciales y no debe subirse al repositorio. `.env.example` es solo una plantilla. No reutilizar las contraseñas de ejemplo en un entorno compartido o de producción.
 
@@ -279,7 +283,7 @@ El arranque sigue estas dependencias:
 4. El backend inicia después de que PostgreSQL esté saludable y `ollama-pull` haya terminado correctamente.
 5. El frontend inicia cuando el backend está saludable.
 
-La primera ejecución puede tardar más debido a la descarga de imágenes, paquetes, modelo e embeddings, además de la indexación documental.
+La primera ejecución puede tardar varios minutos debido a la descarga de imágenes, paquetes, modelo e embeddings, además de la indexación documental. La comprobación de salud del backend espera hasta cinco minutos antes de contar fallos, para permitir esta inicialización inicial.
 
 ### 7.4 Comprobar el estado
 
