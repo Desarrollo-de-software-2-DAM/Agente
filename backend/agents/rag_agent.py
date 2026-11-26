@@ -1,14 +1,32 @@
 import logging
+import re
 from typing import Dict, Any, Optional, List
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
 from config import (
     LLM_PROVIDER, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TEMPERATURE,
-    LLM_MODEL_AGENT, GOOGLE_API_KEY, SEARCH_K, SYSTEM_PROMPT
+    LLM_MODEL_AGENT, GOOGLE_API_KEY, SEARCH_K, STORE_NAME, SYSTEM_PROMPT
 )
+from utils.text_normalize import normalize
 
 logger = logging.getLogger(__name__)
+
+NO_DOCUMENTS_ANSWER = (
+    "No encontré información sobre este tema en los documentos disponibles. "
+    "Te sugiero consultar con el área correspondiente."
+)
+_GREETING_WORDS = {
+    "buenas", "buenos", "dia", "dias", "hola", "hey", "noches", "saludos", "tardes"
+}
+_GREETING_STARTS = {"buenas", "buenos", "hola", "hey", "saludos"}
+
+
+def _is_greeting(question: str) -> bool:
+    words = set(re.findall(r"[a-z]+", normalize(question)))
+    return bool(words) and words.issubset(_GREETING_WORDS) and bool(
+        words.intersection(_GREETING_STARTS)
+    )
 
 
 def create_llm_instance():
@@ -93,17 +111,29 @@ Contexto de los documentos oficiales:
             if self.vector_store_manager is not None:
                 relevant_docs = self.vector_store_manager.search(question, k=SEARCH_K)
 
-            # Extraer nombres de fuentes únicas
-            sources = list(set([doc.metadata.get("source", "desconocido") for doc in relevant_docs]))
+            sources = list(dict.fromkeys(
+                doc.metadata.get("source", "desconocido")
+                for doc in relevant_docs
+            ))
+
+            if not relevant_docs:
+                answer = (
+                    f"¡Hola! Soy el asistente virtual de {STORE_NAME}. "
+                    "¿En qué puedo ayudarte?"
+                    if _is_greeting(question)
+                    else NO_DOCUMENTS_ANSWER
+                )
+                return {
+                    "answer": answer,
+                    "sources": [],
+                    "context_docs": [],
+                }
 
             # Formatear el contexto
-            if relevant_docs:
-                context_text = "\n\n".join([
-                    f"Fuente: {doc.metadata.get('source', 'desconocido')}\nContenido: {doc.page_content}"
-                    for doc in relevant_docs
-                ])
-            else:
-                context_text = "No se encontraron documentos relevantes en la base de datos."
+            context_text = "\n\n".join([
+                f"Fuente: {doc.metadata.get('source', 'desconocido')}\nContenido: {doc.page_content}"
+                for doc in relevant_docs
+            ])
 
             # 2. Generación con el LLM (Ollama local o Gemini)
             answer = self.chain.invoke({

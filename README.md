@@ -38,13 +38,14 @@ En la configuración predeterminada, la generación de respuestas se realiza loc
 7. [Instalación y ejecución con Docker Compose](#7-instalación-y-ejecución-con-docker-compose)
 8. [Uso de la aplicación](#8-uso-de-la-aplicación)
 9. [API del backend](#9-api-del-backend)
-10. [Pruebas automatizadas](#10-pruebas-automatizadas)
-11. [Instalación tradicional sin Docker](#11-instalación-tradicional-sin-docker)
-12. [Administración y solución de problemas](#12-administración-y-solución-de-problemas)
-13. [Documentación y evidencias](#13-documentación-y-evidencias)
-14. [Flujo de trabajo del equipo](#14-flujo-de-trabajo-del-equipo)
-15. [Alcance de las entregas](#15-alcance-de-las-entregas)
-16. [Equipo](#16-equipo)
+10. [Diagrama entidad relación](#10-diagrama-entidad-relación)
+11. [Pruebas automatizadas](#10-pruebas-automatizadas)
+12. [Instalación tradicional sin Docker](#11-instalación-tradicional-sin-docker)
+13. [Administración y solución de problemas](#12-administración-y-solución-de-problemas)
+14. [Documentación y evidencias](#13-documentación-y-evidencias)
+15. [Flujo de trabajo del equipo](#14-flujo-de-trabajo-del-equipo)
+16. [Alcance de las entregas](#15-alcance-de-las-entregas)
+17. [Equipo](#16-equipo)
 
 ---
 
@@ -115,7 +116,8 @@ PostgreSQL       FAISS + FastEmbed    Ollama
 - Red `amershop_net` tipo `bridge` para la comunicación entre servicios.
 - Volumen `pgdata` para los datos de PostgreSQL.
 - Volumen `ollama_data` para los modelos descargados de Ollama.
-- Compose declara `faiss_data` montado en `/app/faiss_db`. **Nota de revisión:** el `VectorStoreManager` de la versión revisada utiliza por defecto `./faiss_db/` (dentro del contenedor: `/app/faiss_db`) y no recibe actualmente `FAISS_PERSIST_DIR`. Por tanto, el volumen `faiss_data` no respalda el índice activo hasta que se alinee la configuración del código o el punto de montaje. No debe afirmarse que el índice FAISS persiste en ese volumen antes de corregir y validar este detalle.
+- Volumen `faiss_data` montado en `/app/faiss_db`, que coincide con la ruta predeterminada `FAISS_PERSIST_DIR=./faiss_db` desde el directorio de trabajo del backend.
+- El índice registra el modelo de embeddings, la fragmentación y una huella del contenido indexado. Si cambian los parámetros o los documentos, el backend descarta únicamente los archivos de ese índice y lo reconstruye al iniciar.
 
 ## 4. Estructura del repositorio
 
@@ -236,6 +238,9 @@ GOOGLE_API_KEY=
 | `OLLAMA_BASE_URL` | Dirección de Ollama | En Compose: `http://ollama:11434`; fuera de Docker: normalmente `http://localhost:11434` |
 | `OLLAMA_MODEL` | Modelo de Ollama | Predeterminado: `llama3.2` |
 | `OLLAMA_TEMPERATURE` | Temperatura de generación | Predeterminado: `0.1` |
+| `EMBEDDING_MODEL` | Modelo de embeddings multilingüe de FastEmbed | Predeterminado: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`; cambiarlo requiere regenerar el índice |
+| `CHUNK_SIZE`, `CHUNK_OVERLAP` | Tamaño y solapamiento de fragmentos | Predeterminados: `600` y `100` caracteres; cambiar estos valores también regenera el índice |
+| `SEARCH_K` | Cantidad máxima de fragmentos recuperados | Predeterminado: `8` |
 | `GOOGLE_API_KEY` | Clave para proveedor Gemini | No es necesaria con `LLM_PROVIDER=ollama` |
 | `LLM_MODEL_AGENT`, `LLM_MODEL_GRADER` | Modelos Gemini | Solo se utilizan al configurar el proveedor Gemini y los componentes correspondientes |
 | `HF_TOKEN` | Token opcional de Hugging Face | Puede permanecer vacío para modelos públicos compatibles |
@@ -243,7 +248,7 @@ GOOGLE_API_KEY=
 | `POSTGRES_PASSWORD` | Contraseña PostgreSQL | Debe cambiarse antes de exponer el servicio |
 | `POSTGRES_DB` | Nombre de BD | Predeterminado: `agente_db` |
 | `ADMIN_PASSWORD`, `USER1_PASSWORD`, `USER2_PASSWORD`, `RRHH_PASSWORD`, `VENTAS_PASSWORD`, `SOPORTE_PASSWORD` | Contraseñas iniciales | Cambiar los valores antes de un despliegue compartido |
-| `FAISS_PERSIST_DIR` | Ruta configurada para el índice | En la versión revisada aparece en configuración, pero el gestor vectorial usa por defecto `./faiss_db/`; alinear código y volumen antes de confiar en esta variable |
+| `FAISS_PERSIST_DIR` | Ruta persistente del índice FAISS | Predeterminado: `./faiss_db/`; en Docker coincide con el volumen `faiss_data` montado en `/app/faiss_db` |
 
 > **Seguridad:** `.env` contiene credenciales y no debe subirse al repositorio. `.env.example` es solo una plantilla. No reutilizar las contraseñas de ejemplo en un entorno compartido o de producción.
 
@@ -278,7 +283,7 @@ El arranque sigue estas dependencias:
 4. El backend inicia después de que PostgreSQL esté saludable y `ollama-pull` haya terminado correctamente.
 5. El frontend inicia cuando el backend está saludable.
 
-La primera ejecución puede tardar más debido a la descarga de imágenes, paquetes, modelo e embeddings, además de la indexación documental.
+La primera ejecución puede tardar varios minutos debido a la descarga de imágenes, paquetes, modelo e embeddings, además de la indexación documental. La comprobación de salud del backend espera hasta cinco minutos antes de contar fallos, para permitir esta inicialización inicial.
 
 ### 7.4 Comprobar el estado
 
@@ -372,7 +377,30 @@ La definición interactiva se encuentra en <http://localhost:8000/docs>.
 
 > **Alcance de seguridad:** el backend verifica credenciales y almacena contraseñas mediante bcrypt, pero la implementación revisada no utiliza tokens de sesión/JWT para proteger los endpoints de historial y chat. No debe presentarse como un sistema de autenticación de producción sin una revisión y un refuerzo adicional de autorización.
 
-## 10. Pruebas automatizadas
+## 10 Diagrama entidad relación
+
+```mermaid
+erDiagram
+    users ||--o{ messages : "tiene"
+
+    users {
+        int id PK "PRIMARY KEY"
+        varchar username UK "VARCHAR(64), NOT NULL, INDEX"
+        varchar email UK "VARCHAR(120), NULLABLE"
+        varchar password_hash "VARCHAR(255), NOT NULL"
+        timestamptz created_at "TIMESTAMPTZ, NOT NULL (UTC)"
+    }
+
+    messages {
+        int id PK "PRIMARY KEY"
+        int user_id FK "REFERENCES users(id), NOT NULL, INDEX"
+        varchar role "VARCHAR(16), NOT NULL ('user' | 'assistant')"
+        text content "TEXT, NOT NULL"
+        timestamptz created_at "TIMESTAMPTZ, NOT NULL (UTC)"
+    }
+```
+
+## 11. Pruebas automatizadas
 
 Las pruebas se encuentran en `backend/tests/`. El archivo `backend/pytest.ini` limita la recopilación al directorio `tests` y a los archivos `test_*.py`.
 
@@ -392,11 +420,11 @@ La suite cubre, entre otros aspectos, endpoints de la API, registro e inicio de 
 
 **Validación realizada en el entorno local del equipo el 13 de noviembre de 2026:** `40 passed, 3 warnings`. Los avisos correspondieron a advertencias de obsolescencia de `pytest-asyncio`, integración de embeddings de `langchain-community` y eventos de inicio de FastAPI; no fueron fallos de pruebas. Este resultado debe acompañarse de la captura actualizada en `docs/evidencias/` y mantenerse sincronizado con los cambios que finalmente se suban a GitHub.
 
-## 11. Instalación tradicional sin Docker
+## 12. Instalación tradicional sin Docker
 
 Esta modalidad ejecuta backend y frontend directamente en el equipo. Requiere Python 3.12 y un servicio Ollama local. PostgreSQL es opcional porque `backend/db.py` utiliza SQLite cuando no se configura `DATABASE_URL`.
 
-### 11.1 Preparar Ollama
+### 12.1 Preparar Ollama
 
 Instalar Ollama siguiendo las instrucciones oficiales para el sistema operativo. Asegurarse de que el servicio esté activo y descargar el modelo configurado, por ejemplo:
 
@@ -404,7 +432,7 @@ Instalar Ollama siguiendo las instrucciones oficiales para el sistema operativo.
 ollama pull llama3.2
 ```
 
-### 11.2 Configurar variables
+### 12.2 Configurar variables
 
 Crear `.env` en la raíz del proyecto. Para ejecución fuera de Docker, cambiar:
 
@@ -416,7 +444,7 @@ OLLAMA_MODEL=llama3.2
 
 Si se usará PostgreSQL local, definir `DATABASE_URL` con la dirección, usuario, contraseña y base de datos correspondientes. Si se omite, se utilizará SQLite en `backend/agente_amershop.db`.
 
-### 11.3 Instalar e iniciar backend
+### 12.3 Instalar e iniciar backend
 
 En una terminal:
 
@@ -434,7 +462,7 @@ En Linux/macOS, activar el entorno con:
 source .venv/bin/activate
 ```
 
-### 11.4 Instalar e iniciar frontend
+### 12.4 Instalar e iniciar frontend
 
 En otra terminal, desde la raíz del repositorio:
 
@@ -450,7 +478,7 @@ Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución lo
 
 > Los scripts `iniciar_local.bat`, `iniciar_local.ps1` e `iniciar_local.sh` son auxiliares. La instalación manual anterior deja explícitos los pasos de creación de entornos e instalación de dependencias.
 
-## 12. Administración y solución de problemas
+## 13. Administración y solución de problemas
 
 | Síntoma | Comprobación o solución |
 |---|---|
@@ -464,7 +492,7 @@ Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución lo
 | Cambios documentales no aparecen en el agente | Reconstruir la imagen si los documentos se copian durante el build y revisar el procedimiento de reindexación. Ver la nota de ruta del índice en la sección 3 antes de borrar datos. |
 | `pytest` no encuentra pruebas | Ejecutar `docker compose exec backend pytest -q` desde la raíz del proyecto y verificar que `backend/pytest.ini` exista en la imagen reconstruida. |
 
-## 13. Documentación y evidencias
+## 14. Documentación y evidencias
 
 - [Guía de despliegue en VPS](docs/DEPLOY_VPS.md)
 - [Flujo de contribución](docs/CONTRIBUTION.md)
@@ -473,19 +501,19 @@ Abrir <http://localhost:8501>. El frontend usa `BACKEND_URL` y, en ejecución lo
 
 La carpeta `docs/evidencias/` reúne capturas de construcción, estado de contenedores, pruebas y funcionamiento de la interfaz. Las capturas de pruebas deben corresponder a la versión final que se entrega.
 
-## 14. Flujo de trabajo del equipo
+## 15. Flujo de trabajo del equipo
 
 La rama `develop` es la rama de integración. Las tareas se desarrollan en ramas independientes y se integran mediante Pull Request hacia `develop`. No realizar `push` directo a la rama de integración.
 
 Consultar [docs/CONTRIBUTION.md](docs/CONTRIBUTION.md) para los comandos y reglas de commits, revisión y evidencias en Pull Requests.
 
-## 15. Alcance de las entregas
+## 16. Alcance de las entregas
 
 **Primera entrega:** preparación del proyecto, organización del repositorio, Dockerfiles, variables de entorno, Docker Compose, aplicación ejecutándose, documentación técnica y evidencias.
 
 **Segunda entrega:** servidor CI/CD, conexión automatizada con el repositorio, pipeline de checkout/build/test/docker build/delivery y despliegue automatizado. Estos elementos no se presentan como completados en esta documentación de la primera entrega.
 
-## 16. Equipo
+## 17. Equipo
 
 Proyecto académico desarrollado para el curso **Desarrollo de Software II** por:
 
